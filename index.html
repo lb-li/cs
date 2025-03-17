@@ -6,6 +6,61 @@
   <title>购物网站</title>
   <!--禁用Cloudflare的Rocket Loader -->
   <meta name="cf-2fa-verify" content="no-rocket">
+  <style>
+    #logArea {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 10px;
+      max-height: 150px;
+      overflow-y: auto;
+      font-size: 12px;
+      z-index: 9999;
+    }
+    #logArea p {
+      margin: 2px 0;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+    #copyLogs {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background: #007AFF;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      padding: 3px 8px;
+      font-size: 10px;
+      cursor: pointer;
+    }
+    #app {
+      padding: 20px;
+      font-family: Arial, sans-serif;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    button {
+      background-color: #007AFF;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #userInfo {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #f5f5f5;
+      border-radius: 5px;
+    }
+  </style>
 </head>
 <body>
   <div id="app">
@@ -13,21 +68,41 @@
     <button id="loginBtn">登录</button>
     <div id="userInfo" style="display: none;">欢迎您，<span id="username"></span></div>
   </div>
+  
   <!-- 添加日志区域 -->
-  <div id="logArea" style="position:fixed; bottom:0; left:0; right:0; background:rgba(0,0,0,0.7); color:white; padding:10px; max-height:150px; overflow-y:auto; font-size:12px; z-index:9999;"></div>
+  <div id="logArea">
+    <button id="copyLogs">复制日志</button>
+  </div>
   
   <!-- 使用data-cfasync属性禁用Rocket Loader -->
   <script data-cfasync="false">
+    // 日志存储
+    var logMessages = [];
+    
     // 日志函数
     function log(message) {
-      console.log(message);
+      var timestamp = new Date().toTimeString().split(' ')[0];
+      var logMessage = timestamp + ': ' + message;
+      
+      console.log(logMessage);
+      logMessages.push(logMessage);
+      
       var logArea = document.getElementById('logArea');
       var entry = document.createElement('p');
-      entry.style.margin = '2px 0';
-      entry.textContent = new Date().toTimeString().split(' ')[0] + ': ' + message;
+      entry.textContent = logMessage;
       logArea.appendChild(entry);
       logArea.scrollTop = logArea.scrollHeight;
     }
+    
+    // 复制日志功能
+    document.getElementById('copyLogs').addEventListener('click', function() {
+      var logText = logMessages.join('\n');
+      navigator.clipboard.writeText(logText).then(function() {
+        alert('日志已复制到剪贴板');
+      }).catch(function(err) {
+        alert('复制失败: ' + err);
+      });
+    });
     
     // 检查是否在App环境中
     function isInAppEnv() {
@@ -81,6 +156,44 @@
             });
           } catch (e) {
             log('调用SDK出错: ' + e.message);
+            
+            // 尝试备用方法
+            log('尝试备用方法');
+            
+            // 方法1: 直接发送消息
+            if (window.parent && window.parent.postMessage) {
+              window.parent.postMessage({action: 'openLogin'}, '*');
+              log('已通过postMessage发送登录请求');
+            }
+            
+            // 方法2: 使用URL Scheme
+            try {
+              var iframe = document.createElement('iframe');
+              iframe.style.display = 'none';
+              iframe.src = 'uniwebview://openLogin';
+              document.body.appendChild(iframe);
+              setTimeout(function() {
+                document.body.removeChild(iframe);
+              }, 100);
+              log('已通过URL Scheme发送登录请求');
+            } catch (err) {
+              log('URL Scheme失败: ' + err.message);
+            }
+            
+            // 方法3: 使用自定义事件
+            try {
+              var event = new CustomEvent('UniAppJSBridgeReady', {
+                detail: {
+                  data: [{
+                    action: 'openLogin'
+                  }]
+                }
+              });
+              document.dispatchEvent(event);
+              log('已通过自定义事件发送登录请求');
+            } catch (err) {
+              log('自定义事件失败: ' + err.message);
+            }
           }
         } else {
           log('非App环境，无法调用登录');
@@ -123,7 +236,7 @@
     // 监听SDK注入失败事件
     document.addEventListener('AppSDKInjectFailed', function() {
       log('收到AppSDK注入失败事件，尝试使用备用方法');
-      // 这里可以实现备用通信方法
+      window.manuallyInitSDK();
     });
     
     // 页面加载完成
@@ -180,44 +293,54 @@
     });
     
     // 添加一个备用方法，以防AppSDK注入失败
-  window.manuallyInitSDK = function() {
-  log('手动初始化SDK');
-  if (!window.AppSDK) {
-    window.AppSDK = {
-      openLogin: function() {
-        log('使用备用方法打开登录');
-        
-        // 尝试通过iframe postMessage通信
-        try {
-          log('尝试通过postMessage发送登录请求');
-          window.parent.postMessage({
-            action: 'openLogin'
-          }, '*');
-          
-          // 尝试触发UniApp事件
-          var event = new CustomEvent('UniAppJSBridgeReady', {
-            detail: {
-              data: [{
+    window.manuallyInitSDK = function() {
+      log('手动初始化SDK');
+      if (!window.AppSDK) {
+        window.AppSDK = {
+          openLogin: function() {
+            log('使用备用方法打开登录');
+            
+            // 尝试通过iframe postMessage通信
+            try {
+              log('尝试通过postMessage发送登录请求');
+              window.parent.postMessage({
                 action: 'openLogin'
-              }]
+              }, '*');
+              
+              // 尝试触发UniApp事件
+              var event = new CustomEvent('UniAppJSBridgeReady', {
+                detail: {
+                  data: [{
+                    action: 'openLogin'
+                  }]
+                }
+              });
+              document.dispatchEvent(event);
+              
+              // 尝试URL Scheme
+              var iframe = document.createElement('iframe');
+              iframe.style.display = 'none';
+              iframe.src = 'uniwebview://openLogin';
+              document.body.appendChild(iframe);
+              setTimeout(function() {
+                document.body.removeChild(iframe);
+              }, 100);
+              
+              log('已发送登录请求');
+            } catch(e) {
+              log('发送登录请求失败: ' + e.message);
+              alert('无法连接到App，请使用App内置的登录功能');
             }
-          });
-          document.dispatchEvent(event);
-          log('已发送登录请求');
-        } catch(e) {
-          log('发送登录请求失败: ' + e.message);
-          alert('无法连接到App，请使用App内置的登录功能');
-        }
-      },
-      setLoginCallback: function(callback) {
-        window.loginCallback = callback;
-        log('已设置登录回调');
+          },
+          setLoginCallback: function(callback) {
+            window.loginCallback = callback;
+            log('已设置登录回调');
+          }
+        };
+        log('备用SDK已初始化');
+        document.dispatchEvent(new CustomEvent('AppSDKReady'));
       }
     };
-    log('备用SDK已初始化');
-    document.dispatchEvent(new CustomEvent('AppSDKReady'));
-  }
-};
     
     // 如果5秒后仍未初始化，尝试手动初始化
     setTimeout(function() {
@@ -226,6 +349,20 @@
         window.manuallyInitSDK();
       }
     }, 5000);
+    
+    // 添加调试信息
+    log('浏览器信息: ' + navigator.userAgent);
+    log('当前URL: ' + window.location.href);
+    
+    // 检测WebView类型
+    if (window.plus) {
+      log('检测到plus对象，可能在App环境中');
+    }
+    
+    // 检测是否在iframe中
+    if (window.self !== window.top) {
+      log('当前页面在iframe中运行');
+    }
   </script>
 </body>
 </html>
