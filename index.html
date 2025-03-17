@@ -566,35 +566,35 @@
     }
     
     // 发送登录请求
-    function sendLoginRequest() {
-      log('发送登录请求');
+     function sendLoginRequest() {
+    log('发送登录请求');
+    
+    // 检查是否在浏览器环境中
+    if (isInBrowserEnv()) {
+      log('检测到浏览器环境');
       
-      // 检查是否在浏览器环境中
-      if (isInBrowserEnv()) {
-        log('检测到浏览器环境，使用特殊处理');
+      // 检查是否在 iframe 中
+      if (isInIframe()) {
+        log('检测到在 iframe 中，尝试与父窗口通信');
         
-        // 检查是否在 iframe 中
-        if (isInIframe()) {
-          log('检测到在 iframe 中，尝试与父窗口通信');
-          
-          // 方法1: 使用 postMessage 发送登录请求到父窗口
-          log('使用 postMessage 发送登录请求到父窗口');
-          window.parent.postMessage({
-            action: 'openLogin',
-            timestamp: new Date().getTime(),
-            // 添加特殊标记，表示这是一个模拟登录请求
-            simulateLogin: true
-          }, '*');
-          
-          log('已通过 iframe 通信发送登录请求');
-          return;
-        }
+        // 使用 postMessage 发送登录请求到父窗口
+        log('使用 postMessage 发送登录请求到父窗口');
+        window.parent.postMessage({
+          action: 'openLogin',
+          timestamp: new Date().getTime(),
+          // 请求真实跳转
+          requestRealNavigation: true
+        }, '*');
         
-        // 如果不在 iframe 中，显示模拟登录表单
-        log('不在 iframe 中，显示模拟登录表单');
-        showLoginForm();
+        log('已通过 iframe 通信发送登录请求');
         return;
       }
+      
+      // 如果不在 iframe 中，显示模拟登录表单
+      log('不在 iframe 中，显示模拟登录表单');
+      showLoginForm();
+      return;
+    }
       
       // 尝试使用 Android 接口
       if (window.android) {
