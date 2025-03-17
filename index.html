@@ -32,7 +32,7 @@
     // 检查是否在App环境中
     function isInAppEnv() {
       var hasSDK = typeof window.AppSDK !== 'undefined';
-      log('检查App环境: ' + (hasSDK ? '是' : '否'));
+      log('检查App环境: ' + (hasSDK ? '是' : '否') + ' (window.AppSDK: ' + typeof window.AppSDK + ')');
       return hasSDK;
     }
     
@@ -117,30 +117,94 @@
       }
     });
     
+    // 创建一个全局变量来跟踪SDK是否已初始化
+    window.sdkInitialized = false;
+    
+    // 监听SDK注入失败事件
+    document.addEventListener('AppSDKInjectFailed', function() {
+      log('收到AppSDK注入失败事件，尝试使用备用方法');
+      // 这里可以实现备用通信方法
+    });
+    
     // 页面加载完成
     document.addEventListener('DOMContentLoaded', function() {
       log('页面加载完成');
-      if (isInAppEnv()) {
-        // 已经有AppSDK
-        initPage();
-      } else {
-        log('等待AppSDK注入');
-        
-        // 监听SDK就绪事件
-        document.addEventListener('AppSDKReady', function() {
-          log('AppSDK加载完成');
-          initPage();
-        });
-        
-        // 设置超时，防止SDK永远不加载
-        setTimeout(function() {
-          if (!isInAppEnv()) {
-            log('AppSDK加载超时，尝试初始化页面');
+      
+      // 增加更长的等待时间
+      var maxWaitTime = 8000; // 8秒
+      var checkInterval = 500; // 每500毫秒检查一次
+      var elapsedTime = 0;
+      
+      function checkSDK() {
+        if (isInAppEnv()) {
+          log('检测到AppSDK，初始化页面');
+          if (!window.sdkInitialized) {
+            window.sdkInitialized = true;
             initPage();
           }
-        }, 3000);
+          return;
+        }
+        
+        elapsedTime += checkInterval;
+        if (elapsedTime >= maxWaitTime) {
+          log('AppSDK加载超时，尝试初始化页面');
+          initPage();
+        } else {
+          setTimeout(checkSDK, checkInterval);
+        }
       }
+      
+      // 开始检查
+      log('等待AppSDK注入...');
+      checkSDK();
+      
+      // 监听SDK就绪事件
+      document.addEventListener('AppSDKReady', function() {
+        log('收到AppSDKReady事件');
+        if (!isInAppEnv()) {
+          log('奇怪，收到了AppSDKReady事件但AppSDK不存在');
+        } else {
+          log('AppSDK加载完成');
+          if (!window.sdkInitialized) {
+            window.sdkInitialized = true;
+            initPage();
+          }
+        }
+      });
+      
+      // 添加全局错误处理
+      window.onerror = function(message, source, lineno, colno, error) {
+        log('全局错误: ' + message + ' at ' + source + ':' + lineno + ':' + colno);
+        return false;
+      };
     });
+    
+    // 添加一个备用方法，以防AppSDK注入失败
+    window.manuallyInitSDK = function() {
+      log('手动初始化SDK');
+      if (!window.AppSDK) {
+        window.AppSDK = {
+          openLogin: function() {
+            log('使用备用方法打开登录');
+            // 这里可以实现备用的登录方法
+            alert('请使用App内置的登录功能');
+          },
+          setLoginCallback: function(callback) {
+            window.loginCallback = callback;
+          }
+        };
+        log('备用SDK已初始化');
+        document.dispatchEvent(new CustomEvent('AppSDKReady'));
+      }
+    };
+    
+    // 如果5秒后仍未初始化，尝试手动初始化
+    setTimeout(function() {
+      if (!isInAppEnv() && !window.sdkInitialized) {
+        log('长时间未检测到AppSDK，尝试手动初始化');
+        window.manuallyInitSDK();
+      }
+    }, 5000);
   </script>
 </body>
 </html>
