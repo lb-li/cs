@@ -9,16 +9,15 @@
   <div id="app">
     <h1>购物网站</h1>
     <button id="loginBtn" style="display: none;">登录</button>
-    <div id="userInfo" style="display: none;">欢迎您，<span id="username"></span>
-    </div></div>
-
-  <script>
-    // 检测是否在App 环境中
+    <div id="userInfo" style="display: none;">欢迎您，<span id="username"></span></div>
+  </div><script data-cfasync="false">
+    // 检测是否在App环境中
     function isInApp() {
-      return window.AppSDK !== undefined;
+      return typeof window.AppSDK !== 'undefined';
     }
 
-    // 页面加载完成document.addEventListener('DOMContentLoaded', function() {
+    // 页面加载完成
+    document.addEventListener('DOMContentLoaded', function() {
       const loginBtn = document.getElementById('loginBtn');
       const userInfo = document.getElementById('userInfo');
       
@@ -31,7 +30,8 @@
         loginBtn.style.display = 'block';
       }
       
-      // 监听 SDK 加载完成document.addEventListener('AppSDKReady', function() {
+      // 监听 SDK 加载完成
+      document.addEventListener('AppSDKReady', function() {
         console.log('App SDK 已加载');
         // 绑定登录按钮点击事件
         loginBtn.addEventListener('click', function() {
@@ -47,7 +47,6 @@
                 localStorage.setItem('username', data.userInfo.username);
                 document.getElementById('username').innerText = data.userInfo.username;
               }
-              
               // 更新 UI
               loginBtn.style.display = 'none';
               userInfo.style.display = 'block';
