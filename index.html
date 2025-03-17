@@ -58,6 +58,17 @@
       background-color: #f5f5f5;
       border-radius: 5px;
     }
+    #debugButtons {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .debug-btn {
+      background-color: #555;
+      font-size: 12px;
+      padding: 5px 10px;
+    }
   </style>
 </head>
 <body>
@@ -65,6 +76,14 @@
     <h1>购物网站</h1>
     <button id="loginBtn">登录</button>
     <div id="userInfo" style="display: none;">欢迎您，<span id="username"></span></div>
+    
+    <!-- 调试按钮 -->
+    <div id="debugButtons">
+      <button class="debug-btn" id="testPostMessage">测试 postMessage</button>
+      <button class="debug-btn" id="testCustomEvent">测试自定义事件</button>
+      <button class="debug-btn" id="testDirectClick">测试直接点击</button>
+      <button class="debug-btn" id="testAllMethods">测试所有方法</button>
+    </div>
   </div>
   
   <!-- 添加日志区域 -->
@@ -108,12 +127,135 @@
       });
     });
     
+    // 检查是否在App环境中
+    function isInAppEnv() {
+      return (
+        typeof window.plus !== 'undefined' || 
+        typeof window.android !== 'undefined' || 
+        typeof window.webkit !== 'undefined' ||
+        navigator.userAgent.indexOf('uni-app') > -1
+      );
+    }
+    
+    // 发送登录请求的函数
+    function sendLoginRequest() {
+      log('发送登录请求');
+      
+      // 方法1: 使用 postMessage
+      try {
+        log('方法1: 使用 postMessage 发送登录请求');
+        window.parent.postMessage({
+          action: 'openLogin',
+          timestamp: new Date().getTime()
+        }, '*');
+      } catch(e) {
+        log('postMessage 失败: ' + e.message);
+      }
+      
+      // 方法2: 使用自定义事件
+      try {
+        log('方法2: 使用自定义事件');
+        var event = new CustomEvent('h5Login', { 
+          detail: { action: 'openLogin', timestamp: new Date().getTime() } 
+        });
+        document.dispatchEvent(event);
+      } catch(e) {
+        log('自定义事件失败: ' + e.message);
+      }
+      
+      // 方法3: 使用 location.href (仅作为备用)
+      try {
+        log('方法3: 尝试使用 location.href');
+        // 创建一个临时链接
+        var a = document.createElement('a');
+        a.href = 'uniwebview://openLogin?t=' + new Date().getTime();
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() {
+          document.body.removeChild(a);
+        }, 100);
+      } catch(e) {
+        log('location.href 失败: ' + e.message);
+      }
+      
+      // 方法4: 尝试直接调用全局方法
+      try {
+        log('方法4: 尝试调用全局方法');
+        if (window.openLogin) {
+          window.openLogin();
+        } else if (window.android && window.android.openLogin) {
+          window.android.openLogin();
+        } else if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.openLogin) {
+          window.webkit.messageHandlers.openLogin.postMessage({});
+        }
+      } catch(e) {
+        log('调用全局方法失败: ' + e.message);
+      }
+      
+      log('已尝试所有登录请求方法');
+    }
+    
+    // 测试所有方法
+    function testAllMethods() {
+      log('测试所有通信方法');
+      
+      // 测试 postMessage
+      try {
+        window.parent.postMessage({
+          action: 'openLogin',
+          test: true,
+          method: 'postMessage',
+          timestamp: new Date().getTime()
+        }, '*');
+        log('postMessage 已发送');
+      } catch(e) {
+        log('postMessage 失败: ' + e.message);
+      }
+      
+      // 测试自定义事件
+      try {
+        var event = new CustomEvent('h5Login', { 
+          detail: { 
+            action: 'openLogin', 
+            test: true,
+            method: 'customEvent',
+            timestamp: new Date().getTime() 
+          } 
+        });
+        document.dispatchEvent(event);
+        log('自定义事件已发送');
+      } catch(e) {
+        log('自定义事件失败: ' + e.message);
+      }
+      
+      // 测试 URL Scheme
+      try {
+        var iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = 'uniwebview://openLogin?test=true&method=urlScheme&t=' + new Date().getTime();
+        document.body.appendChild(iframe);
+        setTimeout(function() {
+          document.body.removeChild(iframe);
+        }, 100);
+        log('URL Scheme 已尝试');
+      } catch(e) {
+        log('URL Scheme 失败: ' + e.message);
+      }
+      
+      log('所有测试方法已尝试');
+    }
+    
     // 初始化页面
     function initPage() {
       log('初始化页面');
       var loginBtn = document.getElementById('loginBtn');
       var userInfo = document.getElementById('userInfo');
       var username = document.getElementById('username');
+      var testPostMessage = document.getElementById('testPostMessage');
+      var testCustomEvent = document.getElementById('testCustomEvent');
+      var testDirectClick = document.getElementById('testDirectClick');
+      var testAllMethods = document.getElementById('testAllMethods');
       
       // 检查登录状态
       var token = localStorage.getItem('token');
@@ -131,17 +273,49 @@
       // 绑定登录按钮点击事件
       loginBtn.addEventListener('click', function() {
         log('点击登录按钮');
-        
-        // 使用 postMessage 发送消息
+        sendLoginRequest();
+      });
+      
+      // 测试按钮
+      testPostMessage.addEventListener('click', function() {
+        log('测试 postMessage');
+        window.parent.postMessage({
+          action: 'openLogin',
+          test: true,
+          method: 'postMessage',
+          timestamp: new Date().getTime()
+        }, '*');
+        log('已发送测试 postMessage');
+      });
+      
+      testCustomEvent.addEventListener('click', function() {
+        log('测试自定义事件');
         try {
-          log('使用 postMessage 发送登录请求');
-          window.parent.postMessage({
-            action: 'openLogin'
-          }, '*');
-          log('已发送登录请求');
+          var event = new CustomEvent('h5Login', { 
+            detail: { 
+              action: 'openLogin', 
+              test: true,
+              method: 'customEvent',
+              timestamp: new Date().getTime() 
+            } 
+          });
+          document.dispatchEvent(event);
+          log('已发送测试自定义事件');
         } catch(e) {
-          log('发送登录请求失败: ' + e.message);
+          log('发送自定义事件失败: ' + e.message);
         }
+      });
+      
+      testDirectClick.addEventListener('click', function() {
+        log('测试直接点击');
+        // 这个按钮会触发我们注入的点击事件监听器
+        loginBtn.click();
+        log('已触发登录按钮点击');
+      });
+      
+      testAllMethods.addEventListener('click', function() {
+        log('测试所有方法');
+        testAllMethods();
       });
       
       // 监听消息
@@ -176,7 +350,42 @@
       // 添加调试信息
       log('浏览器信息: ' + navigator.userAgent);
       log('当前URL: ' + window.location.href);
+      log('referrer: ' + document.referrer);
+      log('是否在iframe中: ' + (window.self !== window.top));
+      log('window.parent可用: ' + (window.parent !== window.self));
+      log('plus对象: ' + (typeof window.plus !== 'undefined'));
+      log('android对象: ' + (typeof window.android !== 'undefined'));
+      log('webkit对象: ' + (typeof window.webkit !== 'undefined'));
     });
+    
+    // 添加全局错误处理
+    window.onerror = function(message, source, lineno, colno, error) {
+      log('全局错误: ' + message + ' at ' + source + ':' + lineno + ':' + colno);
+      return false;
+    };
+    
+    // 添加全局方法，以便App可以直接调用
+    window.setLoginResult = function(data) {
+      log('收到登录结果: ' + JSON.stringify(data));
+      var userInfo = document.getElementById('userInfo');
+      var username = document.getElementById('username');
+      var loginBtn = document.getElementById('loginBtn');
+      
+      if (data && data.token) {
+        localStorage.setItem('token', data.token);
+        
+        if (data.userInfo) {
+          localStorage.setItem('username', data.userInfo.username);
+          username.textContent = data.userInfo.username;
+        }
+        
+        // 更新UI
+        loginBtn.style.display = 'none';
+        userInfo.style.display = 'block';
+        
+        log('登录成功，UI已更新');
+      }
+    };
   </script>
 </body>
 </html>
