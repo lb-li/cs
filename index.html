@@ -4,109 +4,156 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no">
   <title>购物网站</title>
+  <style>
+    #logContainer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 10px;
+      max-height: 150px;
+      overflow-y: auto;
+      font-size: 12px;
+      z-index: 9999;
+    }
+    #loginBtn {
+      padding: 10px 20px;
+      background: #007AFF;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      margin: 20px 0;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
   <div id="app">
     <h1>购物网站</h1>
     <button id="loginBtn">登录</button>
-    <div id="userInfo" style="display: none;">欢迎您，<span id="username"></span></div>
-  </div>
+    <div id="userInfo" style="display: none;">
+      欢迎您，<span id="username"></span>
+    </div></div>
+  <div id="logContainer"></div>
 
   <script>
-    // 添加日志辅助调试
-    function log(msg) {
-      console.log(msg);
-      // 可以添加在页面上显示日志的元素
-      var logDiv = document.getElementById('log') || document.createElement('div');
-      if(!document.getElementById('log')) {
-        logDiv.id = 'log';logDiv.style.position = 'fixed';
-        logDiv.style.bottom = '0';
-        logDiv.style.left = '0';
-        logDiv.style.right = '0';
-        logDiv.style.background = 'rgba(0,0,0,0.7)';
-        logDiv.style.color = 'white';
-        logDiv.style.padding = '10px';
-        logDiv.style.fontSize = '12px';
-        logDiv.style.maxHeight = '100px';
-        logDiv.style.overflowY = 'auto';
-        document.body.appendChild(logDiv);
-      }
-      var p = document.createElement('p');
-      p.textContent = new Date().toLocaleTimeString() + ': ' + msg;
-      logDiv.appendChild(p);
-      logDiv.scrollTop = logDiv.scrollHeight;
+    // 调试日志函数
+    function log(message) {
+      console.log(message);const logContainer = document.getElementById('logContainer');
+      const logEntry = document.createElement('div');
+      logEntry.textContent = new Date().toTimeString().split(' ')[0] + ': ' + message;
+      logContainer.appendChild(logEntry);
+      logContainer.scrollTop = logContainer.scrollHeight;
     }
     
-    // 检测是否在App环境中
-    function isInApp() {
-      log('检测App环境: ' + (window.AppSDK !== undefined));
-      return window.AppSDK !== undefined;
-    }
-
-    // 初始化页面
-    function initPage() {
-      log('初始化页面');
-      const loginBtn = document.getElementById('loginBtn');
-      const userInfo = document.getElementById('userInfo');
-      
+    // 初始化函数
+    function init() {
+      log('页面初始化');
       // 检查登录状态
       const token = localStorage.getItem('token');
+      const loginBtn = document.getElementById('loginBtn');
+      const userInfo = document.getElementById('userInfo');
+      const usernameSpan = document.getElementById('username');
+      
       if (token) {
-        userInfo.style.display = 'block';document.getElementById('username').innerText = localStorage.getItem('username') || '用户';loginBtn.style.display = 'none';
+        log('已登录状态');
+        loginBtn.style.display = 'none';
+        userInfo.style.display = 'block';
+        usernameSpan.textContent = localStorage.getItem('username') || '用户';
       } else {
-        userInfo.style.display = 'none';
+        log('未登录状态');
         loginBtn.style.display = 'block';
-      }// 绑定登录按钮点击事件
+        userInfo.style.display = 'none';
+      }
+      
+      // 绑定登录按钮事件
       loginBtn.addEventListener('click', function() {
         log('点击登录按钮');
-        if (isInApp()) {
-          log('检测到App环境，调用AppSDK.openLogin()');
-          // 在App内，调用SDK打开登录页面
-          window.AppSDK.openLogin();// 设置登录成功的回调
-          window.AppSDK.setLoginCallback(function(data) {
-            log('收到登录成功回调: ' + JSON.stringify(data));
-            
-            // 存储token和用户信息
-            localStorage.setItem('token', data.token);
-            if (data.userInfo) {
-              localStorage.setItem('username', data.userInfo.username);document.getElementById('username').innerText = data.userInfo.username;
-            }
-            
-            // 更新UI
-            loginBtn.style.display = 'none';
-            userInfo.style.display = 'block';
-          });
+        if (window.AppSDK) {
+          log('检测到AppSDK，调用openLogin方法');
+          try {
+            window.AppSDK.openLogin();
+            // 设置登录回调
+            window.AppSDK.setLoginCallback(function(data) {
+              log('收到登录回调: ' + JSON.stringify(data));
+              // 保存登录信息
+              if (data.token) {
+                localStorage.setItem('token', data.token);}
+              
+              if (data.userInfo) {
+                localStorage.setItem('username', data.userInfo.username);usernameSpan.textContent = data.userInfo.username;
+              }
+              // 更新UI
+              loginBtn.style.display = 'none';
+              userInfo.style.display = 'block';
+            });
+          } catch (e) {
+            log('调用SDK失败: ' + e.message);
+          }
         } else {
-          log('非App环境，跳转到网页登录页面');
-          // 不在App内，跳转到普通登录页面
-          window.location.href = '/login.html';
+          log('未检测到AppSDK，可能不在App环境中');alert('请在App中打开此页面');
         }
       });
     }
-
-    // 页面加载完成document.addEventListener('DOMContentLoaded', function() {
+    
+    // 监听消息事件
+    window.addEventListener('message', function(event) {
+      log('收到消息: ' + JSON.stringify(event
+      const data = event.data;
+      if (data && data.action === 'loginSuccess') {
+        log('处理登录成功消息');
+        // 保存登录信息
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+        }
+        
+        if (data.userInfo) {
+          localStorage.setItem('username', data.userInfo.username);
+          document.getElementById('username').textContent = data.userInfo.username;
+        }
+        
+        // 更新UIdocument.getElementById('loginBtn').style.display = 'none';
+        document.getElementById('userInfo').style.display = 'block';
+        // 如果有回调函数，则执行
+        if (window.loginCallback) {
+          window.loginCallback(data);
+        }
+      }// 处理SDK注入
+      if (data && data.type === 'INJECT_SDK') {
+        log('收到SDK注入代码');
+        try {
+          eval(data.code);
+          log('SDK注入成功');
+        } catch (e) {
+          log('SDK注入失败: ' + e.message);
+        }
+      }
+    });
+    
+    // 页面加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function() {
       log('页面加载完成');
-      
-      // 等待AppSDK注入
-      if (isInApp()) {
-        log('已检测到AppSDK');
-        initPage();
+      // 检测AppSDK
+      if (window.AppSDK) {
+        log('AppSDK已存在，直接初始化');
+        init();
       } else {
-        log('等待AppSDK注入');
-        // 监听AppSDK加载事件document.addEventListener('AppSDKReady', function() {
-          log('AppSDK加载完成事件触发');
-          initPage();
+        log('等待AppSDK加载');
+        // 监听SDK就绪事件document.addEventListener('AppSDKReady', function() {
+          log('AppSDK加载完成');
+          init();
         });
         
-        // 防止AppSDK注入失败导致页面无法使用
+        // 设置超时，防止SDK永远不加载
         setTimeout(function() {
-          if (!isInApp()) {
-            log('AppSDK注入超时，初始化页面');
-            initPage();
+          if (!window.AppSDK) {
+            log('AppSDK加载超时，尝试直接初始化');
+            init();
           }
         }, 3000);
       }
-    });
-  </script>
+    });</script>
 </body>
 </html>
