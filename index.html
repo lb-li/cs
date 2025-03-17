@@ -60,6 +60,17 @@
       background-color: #f5f5f5;
       border-radius: 5px;
     }
+    #debugButtons {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .debug-btn {
+      background-color: #555;
+      font-size: 12px;
+      padding: 5px 10px;
+    }
   </style>
 </head>
 <body>
@@ -67,6 +78,15 @@
     <h1>购物网站</h1>
     <button id="loginBtn">登录</button>
     <div id="userInfo" style="display: none;">欢迎您，<span id="username"></span></div>
+    
+    <!-- 调试按钮 -->
+    <div id="debugButtons">
+      <button class="debug-btn" id="testUniAppJSBridge">测试UniAppJSBridge</button>
+      <button class="debug-btn" id="testPostMessage">测试PostMessage</button>
+      <button class="debug-btn" id="testURLScheme">测试URL Scheme</button>
+      <button class="debug-btn" id="testCustomEvent">测试自定义事件</button>
+      <button class="debug-btn" id="testAllMethods">测试所有方法</button>
+    </div>
   </div>
   
   <!-- 添加日志区域 -->
@@ -101,14 +121,133 @@
         alert('日志已复制到剪贴板');
       }).catch(function(err) {
         alert('复制失败: ' + err);
+        // 备用复制方法
+        var textarea = document.createElement('textarea');
+        textarea.value = logText;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        alert('日志已复制到剪贴板（备用方法）');
       });
     });
     
     // 检查是否在App环境中
     function isInAppEnv() {
-      var hasSDK = typeof window.AppSDK !== 'undefined';
-      log('检查App环境: ' + (hasSDK ? '是' : '否') + ' (window.AppSDK: ' + typeof window.AppSDK + ')');
+      var hasSDK = typeof window.AppSDK !== 'undefined' || 
+                   typeof window.UniAppJSBridge !== 'undefined' || 
+                   typeof window.plus !== 'undefined';
+      log('检查App环境: ' + (hasSDK ? '是' : '否') + 
+          ' (AppSDK: ' + typeof window.AppSDK + 
+          ', UniAppJSBridge: ' + typeof window.UniAppJSBridge + 
+          ', plus: ' + typeof window.plus + ')');
       return hasSDK;
+    }
+    
+    // 尝试所有可能的方法打开登录页面
+    function openLoginWithAllMethods() {
+      log('尝试所有方法打开登录页面');
+      
+      // 方法1: 使用UniAppJSBridge
+      if (window.UniAppJSBridge) {
+        try {
+          log('使用UniAppJSBridge.openLogin()');
+          window.UniAppJSBridge.openLogin();
+        } catch(e) {
+          log('UniAppJSBridge调用失败: ' + e.message);
+        }
+      }
+      
+      // 方法2: 使用AppSDK
+      if (window.AppSDK) {
+        try {
+          log('使用AppSDK.openLogin()');
+          window.AppSDK.openLogin();
+        } catch(e) {
+          log('AppSDK调用失败: ' + e.message);
+        }
+      }
+      
+      // 方法3: 使用plus接口
+      if (window.plus) {
+        try {
+          log('使用plus.postMessage');
+          window.plus.postMessage({
+            action: 'openLogin'
+          });
+        } catch(e) {
+          log('plus.postMessage失败: ' + e.message);
+        }
+      }
+      
+      // 方法4: 使用postMessage
+      try {
+        log('使用window.postMessage');
+        window.parent.postMessage({
+          action: 'openLogin'
+        }, '*');
+      } catch(e) {
+        log('postMessage失败: ' + e.message);
+      }
+      
+      // 方法5: 使用URL Scheme
+      try {
+        log('使用URL Scheme');
+        var iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = 'uniwebview://openLogin';
+        document.body.appendChild(iframe);
+        setTimeout(function() {
+          document.body.removeChild(iframe);
+        }, 100);
+      } catch(e) {
+        log('URL Scheme失败: ' + e.message);
+      }
+      
+      // 方法6: 触发自定义事件
+      try {
+        log('触发UniAppJSBridgeReady事件');
+        var event = new CustomEvent('UniAppJSBridgeReady', {
+          detail: {
+            data: [{
+              action: 'openLogin'
+            }]
+          }
+        });
+        document.dispatchEvent(event);
+      } catch(e) {
+        log('触发事件失败: ' + e.message);
+      }
+      
+      // 方法7: 尝试直接调用uni API
+      try {
+        if (window.uni) {
+          log('使用uni.navigateTo');
+          window.uni.navigateTo({
+            url: '/pages/login/login',
+            success: function() {
+              log('uni.navigateTo成功');
+            },
+            fail: function(err) {
+              log('uni.navigateTo失败: ' + JSON.stringify(err));
+            }
+          });
+        }
+      } catch(e) {
+        log('uni API调用失败: ' + e.message);
+      }
+      
+      // 方法8: 尝试调用全局方法
+      try {
+        if (window.parent && window.parent.openLogin) {
+          log('调用全局openLogin方法');
+          window.parent.openLogin();
+        }
+      } catch(e) {
+        log('调用全局方法失败: ' + e.message);
+      }
+      
+      log('已尝试所有打开登录页面的方法');
     }
     
     // 初始化页面
@@ -134,71 +273,52 @@
       // 绑定登录按钮点击事件
       loginBtn.addEventListener('click', function() {
         log('点击登录按钮');
-        if (isInAppEnv()) {
-          try {
-            log('调用AppSDK.openLogin()');
-            window.AppSDK.openLogin();
-            log('已发送打开登录请求');
-            
-            // 设置登录回调
-            window.AppSDK.setLoginCallback(function(data) {
-              log('收到登录回调数据: ' + JSON.stringify(data));
-              if (data.token) {
-                localStorage.setItem('token', data.token);
-              }
-              if (data.userInfo) {
-                localStorage.setItem('username', data.userInfo.username);
-                username.textContent = data.userInfo.username;
-              }
-              // 更新界面
-              loginBtn.style.display = 'none';
-              userInfo.style.display = 'block';
-            });
-          } catch (e) {
-            log('调用SDK出错: ' + e.message);
-            
-            // 尝试备用方法
-            log('尝试备用方法');
-            
-            // 方法1: 直接发送消息
-            if (window.parent && window.parent.postMessage) {
-              window.parent.postMessage({action: 'openLogin'}, '*');
-              log('已通过postMessage发送登录请求');
-            }
-            
-            // 方法2: 使用URL Scheme
-            try {
-              var iframe = document.createElement('iframe');
-              iframe.style.display = 'none';
-              iframe.src = 'uniwebview://openLogin';
-              document.body.appendChild(iframe);
-              setTimeout(function() {
-                document.body.removeChild(iframe);
-              }, 100);
-              log('已通过URL Scheme发送登录请求');
-            } catch (err) {
-              log('URL Scheme失败: ' + err.message);
-            }
-            
-            // 方法3: 使用自定义事件
-            try {
-              var event = new CustomEvent('UniAppJSBridgeReady', {
-                detail: {
-                  data: [{
-                    action: 'openLogin'
-                  }]
-                }
-              });
-              document.dispatchEvent(event);
-              log('已通过自定义事件发送登录请求');
-            } catch (err) {
-              log('自定义事件失败: ' + err.message);
-            }
-          }
+        openLoginWithAllMethods();
+      });
+      
+      // 绑定调试按钮事件
+      document.getElementById('testUniAppJSBridge').addEventListener('click', function() {
+        log('测试UniAppJSBridge');
+        if (window.UniAppJSBridge) {
+          window.UniAppJSBridge.openLogin();
         } else {
-          log('非App环境，无法调用登录');
-          alert('请在App中打开此页面');
+          log('UniAppJSBridge不可用');
         }
+      });
+      
+      document.getElementById('testPostMessage').addEventListener('click', function() {
+        log('测试PostMessage');
+        window.parent.postMessage({
+          action: 'openLogin'
+        }, '*');
+      });
+      
+      document.getElementById('testURLScheme').addEventListener('click', function() {
+        log('测试URL Scheme');
+        var iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = 'uniwebview://openLogin';
+        document.body.appendChild(iframe);
+        setTimeout(function() {
+          document.body.removeChild(iframe);
+        }, 100);
+      });
+      
+      document.getElementById('testCustomEvent').addEventListener('click', function() {
+        log('测试自定义事件');
+        var event = new CustomEvent('UniAppJSBridgeReady', {
+          detail: {
+            data: [{
+              action: 'openLogin'
+            }]
+          }
+        });
+        document.dispatchEvent(event);
+      });
+      
+      document.getElementById('testAllMethods').addEventListener('click', function() {
+        log('测试所有方法');
+        openLoginWithAllMethods();
       });
     }
     
@@ -250,7 +370,7 @@
       
       function checkSDK() {
         if (isInAppEnv()) {
-          log('检测到AppSDK，初始化页面');
+          log('检测到App环境，初始化页面');
           if (!window.sdkInitialized) {
             window.sdkInitialized = true;
             initPage();
@@ -260,7 +380,8 @@
         
         elapsedTime += checkInterval;
         if (elapsedTime >= maxWaitTime) {
-          log('AppSDK加载超时，尝试初始化页面');
+          log('App环境检测超时，尝试手动初始化');
+          window.manuallyInitSDK();
           initPage();
         } else {
           setTimeout(checkSDK, checkInterval);
@@ -268,20 +389,29 @@
       }
       
       // 开始检查
-      log('等待AppSDK注入...');
+      log('等待App环境初始化...');
       checkSDK();
       
       // 监听SDK就绪事件
       document.addEventListener('AppSDKReady', function() {
         log('收到AppSDKReady事件');
         if (!isInAppEnv()) {
-          log('奇怪，收到了AppSDKReady事件但AppSDK不存在');
+          log('奇怪，收到了AppSDKReady事件但App环境不可用');
         } else {
-          log('AppSDK加载完成');
+          log('App环境已就绪');
           if (!window.sdkInitialized) {
             window.sdkInitialized = true;
             initPage();
           }
+        }
+      });
+      
+      // 监听UniAppJSBridge就绪事件
+      document.addEventListener('UniAppJSBridgeReady', function(e) {
+        log('收到UniAppJSBridgeReady事件: ' + JSON.stringify(e.detail));
+        if (!window.sdkInitialized) {
+          window.sdkInitialized = true;
+          initPage();
         }
       });
       
@@ -295,29 +425,54 @@
     // 添加一个备用方法，以防AppSDK注入失败
     window.manuallyInitSDK = function() {
       log('手动初始化SDK');
+      
+      // 初始化UniAppJSBridge
+      if (!window.UniAppJSBridge) {
+        window.UniAppJSBridge = {
+          postMessage: function(data) {
+            log('UniAppJSBridge发送消息: ' + JSON.stringify(data));
+            
+            try {
+              // 尝试多种方式发送消息
+              window.parent.postMessage(data, '*');
+              
+              // 创建自定义事件
+              var event = new CustomEvent('UniAppJSBridgeMessage', { detail: data });
+              document.dispatchEvent(event);
+              
+              return true;
+            } catch(e) {
+              log('UniAppJSBridge发送消息失败: ' + e.message);
+              return false;
+            }
+          },
+          
+          openLogin: function() {
+            return this.postMessage({ action: 'openLogin' });
+          }
+        };
+        log('UniAppJSBridge已手动初始化');
+      }
+      
+      // 初始化AppSDK
       if (!window.AppSDK) {
         window.AppSDK = {
           openLogin: function() {
-            log('使用备用方法打开登录');
+            log('AppSDK.openLogin()');
             
-            // 尝试通过iframe postMessage通信
+            // 尝试通过UniAppJSBridge发送
+            if (window.UniAppJSBridge) {
+              return window.UniAppJSBridge.openLogin();
+            }
+            
+            // 备用方法
             try {
-              log('尝试通过postMessage发送登录请求');
+              // 尝试多种方式发送消息
               window.parent.postMessage({
                 action: 'openLogin'
               }, '*');
               
-              // 尝试触发UniApp事件
-              var event = new CustomEvent('UniAppJSBridgeReady', {
-                detail: {
-                  data: [{
-                    action: 'openLogin'
-                  }]
-                }
-              });
-              document.dispatchEvent(event);
-              
-              // 尝试URL Scheme
+              // URL Scheme
               var iframe = document.createElement('iframe');
               iframe.style.display = 'none';
               iframe.src = 'uniwebview://openLogin';
@@ -327,25 +482,36 @@
               }, 100);
               
               log('已发送登录请求');
+              return true;
             } catch(e) {
               log('发送登录请求失败: ' + e.message);
-              alert('无法连接到App，请使用App内置的登录功能');
+              return false;
             }
           },
+          
           setLoginCallback: function(callback) {
             window.loginCallback = callback;
             log('已设置登录回调');
           }
         };
-        log('备用SDK已初始化');
-        document.dispatchEvent(new CustomEvent('AppSDKReady'));
+        log('AppSDK已手动初始化');
       }
+      
+      // 触发就绪事件
+      try {
+        document.dispatchEvent(new CustomEvent('AppSDKReady'));
+        log('已触发AppSDKReady事件');
+      } catch(e) {
+        log('触发AppSDKReady事件失败: ' + e.message);
+      }
+      
+      window.sdkInitialized = true;
     };
     
     // 如果5秒后仍未初始化，尝试手动初始化
     setTimeout(function() {
       if (!isInAppEnv() && !window.sdkInitialized) {
-        log('长时间未检测到AppSDK，尝试手动初始化');
+        log('长时间未检测到App环境，尝试手动初始化');
         window.manuallyInitSDK();
       }
     }, 5000);
@@ -353,6 +519,8 @@
     // 添加调试信息
     log('浏览器信息: ' + navigator.userAgent);
     log('当前URL: ' + window.location.href);
+    log('页面协议: ' + window.location.protocol);
+    log('referrer: ' + document.referrer);
     
     // 检测WebView类型
     if (window.plus) {
@@ -363,6 +531,12 @@
     if (window.self !== window.top) {
       log('当前页面在iframe中运行');
     }
+    
+    // 检测是否支持某些特定API
+    log('navigator.app: ' + (typeof navigator.app !== 'undefined'));
+    log('navigator.device: ' + (typeof navigator.device !== 'undefined'));
+    log('window.webkit: ' + (typeof window.webkit !== 'undefined'));
+    log('window.android: ' + (typeof window.android !== 'undefined'));
   </script>
 </body>
 </html>
