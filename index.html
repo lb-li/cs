@@ -384,48 +384,81 @@
     
     // 检查登录状态
     function checkLoginStatus() {
-      try {
-        const token = localStorage.getItem('token');
-        const username = localStorage.getItem('username');
-        const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+    try {
+      log('检查登录状态...');
+      
+      // 检查 URL 参数中是否有登录信息
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('token')) {
+        const token = urlParams.get('token');
+        const username = urlParams.get('username') || '用户';
         
-        if (token && username && isLoggedIn) {
-          log('检测到登录状态');
-          return true;
-        } else {
-          log('未检测到登录状态');
-          return false;
-        }
-      } catch (e) {
-        log('检查登录状态失败: ' + e.message);
+        log('从 URL 参数获取到登录信息');
+        
+        // 保存到 localStorage
+        localStorage.setItem('token', token);
+        localStorage.setItem('username', username);
+        localStorage.setItem('isLoggedIn', 'true');
+        localStorage.setItem('loginTime', Date.now().toString());
+        
+        // 清除 URL 参数
+        const newUrl = window.location.pathname + window.location.hash;
+        history.replaceState(null, '', newUrl);
+        
+        return true;
+      }
+      
+      // 检查 localStorage
+      const token = localStorage.getItem('token');
+      const username = localStorage.getItem('username');
+      const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+      
+      log('localStorage 检查: token=' + (token ? '存在' : '不存在') + 
+          ', username=' + (username ? username : '不存在') + 
+          ', isLoggedIn=' + isLoggedIn);
+      
+      if (token && (username || isLoggedIn)) {
+        log('检测到登录状态');
+        return true;
+      } else {
+        log('未检测到登录状态');
         return false;
       }
+    } catch (e) {
+      log('检查登录状态失败: ' + e.message);
+      return false;
     }
+  }
     
     // 初始化页面
     function initPage() {
       log('初始化页面');
       
       // 检查登录状态
-      if (checkLoginStatus()) {
-        log('已登录状态');
-        var userInfo = document.getElementById('userInfo');
-        var username = document.getElementById('username');
-        var loginBtn = document.getElementById('loginBtn');
-        
-        // 显示用户信息
-        username.textContent = localStorage.getItem('username');
-        loginBtn.style.display = 'none';
-        userInfo.style.display = 'block';
-      } else {
-        log('未登录状态');
-        var userInfo = document.getElementById('userInfo');
-        var loginBtn = document.getElementById('loginBtn');
-        
-        // 显示登录按钮
-        loginBtn.style.display = 'block';
-        userInfo.style.display = 'none';
-      }
+     function initPage() {
+    log('初始化页面');
+    
+    // 检查登录状态
+    if (checkLoginStatus()) {
+      log('已登录状态');
+      var userInfo = document.getElementById('userInfo');
+      var username = document.getElementById('username');
+      var loginBtn = document.getElementById('loginBtn');
+      
+      // 显示用户信息
+      username.textContent = localStorage.getItem('username') || '用户';
+      loginBtn.style.display = 'none';
+      userInfo.style.display = 'block';
+    } else {
+      log('未登录状态');
+      var userInfo = document.getElementById('userInfo');
+      var loginBtn = document.getElementById('loginBtn');
+      
+      // 显示登录按钮
+      loginBtn.style.display = 'block';
+      userInfo.style.display = 'none';
+    }
+  }
       
       // 添加登录按钮事件
       document.getElementById('loginBtn').addEventListener('click', function() {
