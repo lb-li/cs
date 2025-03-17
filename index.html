@@ -1,27 +1,80 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="zh-CN">
 <head>
-  <link rel="stylesheet" href="/assets/uni.b8bf2949.css">
-
-  <meta charset="UTF-8" />
-  <script>
-    var coverSupport = 'CSS' in window && typeof CSS.supports === 'function' && (CSS.supports('top: env(a)') ||
-      CSS.supports('top: constant(a)'))
-    document.write(
-      '<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0' +
-      (coverSupport ? ', viewport-fit=cover' : '') + '" />')
-  </script>
-  <title>shopping-website-h5</title>
-  <!--preload-links-->
-  <!--app-context-->
-  <script type="module" crossorigin src="/assets/index-CXYRgNF1.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-BGaAHeMa.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>外部商城网站</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .product {
+      border: 1px solid #eee;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+    .price {
+      color: #f60;
+      font-weight: bold;
+    }
+    .btn {
+      background: #f60;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+      display: block;
+      width: 100%;
+      margin-top: 20px;
+    }
+  </style>
 </head>
-
 <body>
-  <div id="app"><!--app-html--></div>
-  <script src="/static/js/app-bridge.js"></script>
-</body>
+  <div class="header">
+    <h1>购物商城</h1>
+  </div>
+  
+  <div class="product">
+    <h3>高级运动鞋</h3>
+    <p>专业运动缓震设计，舒适透气</p>
+    <p class="price">¥299.00</p>
+  </div>
+  
+  <div class="product">
+    <h3>智能手表</h3>
+    <p>心率监测，运动追踪，防水设计</p>
+    <p class="price">¥699.00</p>
+  </div>
+  
+  <button class="btn" id="loginBtn">登录/注册</button>
 
+  <script>
+    // 检测是否在App环境中
+    document.getElementById('loginBtn').addEventListener('click', function() {
+      // 向App发送跳转到登录页面的消息
+      try {
+        // 发送消息到App
+        window.parent.postMessage({
+          type: 'login',
+          data: {}
+        }, '*');
+        
+        console.log('已发送登录请求到App');
+      } catch (e) {
+        console.error('无法发送消息到App:', e);
+        alert('您不在App中，无法使用此功能');
+      }
+    });
+  </script>
+</body>
 </html>
