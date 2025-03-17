@@ -64,14 +64,49 @@
       flex-wrap: wrap;
       gap: 10px;
     }
-    .debug-btn {
+    #debugButtons button {
       background-color: #555;
       font-size: 12px;
       padding: 5px 10px;
     }
-    #logoutBtn {
-      background-color: #ff3b30;
+    #loginForm {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    #loginFormContent {
+      background-color: white;
+      padding: 20px;
+      border-radius: 10px;
+      width: 80%;
+      max-width: 400px;
+    }
+    #loginFormContent h2 {
+      margin-top: 0;
+      color: #333;
+    }
+    #loginFormContent input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      box-sizing: border-box;
+    }
+    #loginFormContent button {
       margin-top: 10px;
+      width: 100%;
+    }
+    #loginFormContent .cancel-btn {
+      background-color: #ccc;
+      color: #333;
     }
   </style>
 </head>
@@ -79,21 +114,31 @@
   <div id="app">
     <h1>购物网站</h1>
     
-    <button id="loginBtn">登录</button>
+    <div id="loginBtn">
+      <button>登录</button>
+    </div>
     
     <div id="userInfo" style="display: none;">
-      <p>欢迎回来，<span id="username"></span>！</p>
+      <h3>欢迎, <span id="username">用户</span></h3>
       <button id="logoutBtn">退出登录</button>
     </div>
     
     <div id="debugButtons">
-      <button class="debug-btn" id="testUrlScheme">测试 URL Scheme</button>
-      <button class="debug-btn" id="testPostMessage">测试 PostMessage</button>
-      <button class="debug-btn" id="testCustomEvent">测试自定义事件</button>
-      <button class="debug-btn" id="testAndroidInterface">测试 Android 接口</button>
-      <button class="debug-btn" id="testIframeMethod">测试 iframe 方法</button>
-      <button class="debug-btn" id="showLoginForm">显示模拟登录表单</button>
-      <button class="debug-btn" id="clearLogs">清除日志</button>
+      <button id="checkEnvBtn">检查环境</button>
+      <button id="testPostMessageBtn">测试 PostMessage</button>
+      <button id="testAndroidBtn">测试 Android 接口</button>
+      <button id="testUrlSchemeBtn">测试 URL Scheme</button>
+      <button id="testCustomEventBtn">测试自定义事件</button>
+    </div>
+  </div>
+  
+  <div id="loginForm">
+    <div id="loginFormContent">
+      <h2>登录</h2>
+      <input type="text" id="usernameInput" placeholder="用户名">
+      <input type="password" id="passwordInput" placeholder="密码">
+      <button id="submitLoginBtn">登录</button>
+      <button class="cancel-btn" id="cancelLoginBtn">取消</button>
     </div>
   </div>
   
@@ -104,61 +149,175 @@
   <script>
     // 日志函数
     function log(message) {
-      var now = new Date();
-      var timeStr = now.getHours().toString().padStart(2, '0') + ':' +
-                   now.getMinutes().toString().padStart(2, '0') + ':' +
-                   now.getSeconds().toString().padStart(2, '0');
-      
       var logArea = document.getElementById('logArea');
       var p = document.createElement('p');
-      p.textContent = timeStr + ': ' + message;
+      p.textContent = new Date().toTimeString().split(' ')[0] + ': ' + message;
       logArea.appendChild(p);
-      
-      // 自动滚动到底部
       logArea.scrollTop = logArea.scrollHeight;
-      
-      // 控制日志数量
-      var logs = logArea.getElementsByTagName('p');
-      if (logs.length > 100) {
-        logArea.removeChild(logs[0]);
-      }
-      
-      // 同时输出到控制台
-      console.log(timeStr + ': ' + message);
+      console.log(message);
     }
+    
+    // 复制日志
+    document.getElementById('copyLogs').addEventListener('click', function() {
+      var logArea = document.getElementById('logArea');
+      var logText = Array.from(logArea.querySelectorAll('p')).map(p => p.textContent).join('\n');
+      
+      navigator.clipboard.writeText(logText).then(function() {
+        log('日志已复制到剪贴板');
+      }).catch(function(err) {
+        log('复制失败: ' + err);
+      });
+    });
     
     // 检查是否在浏览器环境中
     function isInBrowserEnv() {
-      return (
-        typeof window.plus === 'undefined' && 
-        typeof window.android === 'undefined' && 
-        typeof window.webkit === 'undefined' &&
-        navigator.userAgent.indexOf('uni-app') === -1
-      );
+      return typeof window !== 'undefined' && typeof document !== 'undefined';
     }
     
     // 检查是否在 iframe 中
     function isInIframe() {
       try {
-        return window !== window.top;
+        return window.self !== window.top;
       } catch (e) {
         return true;
       }
     }
     
-    // 检查 Android 接口
-    function checkAndroidInterface() {
-      if (typeof window.android !== 'undefined') {
+    // 显示登录表单
+    function showLoginForm() {
+      document.getElementById('loginForm').style.display = 'flex';
+    }
+    
+    // 隐藏登录表单
+    function hideLoginForm() {
+      document.getElementById('loginForm').style.display = 'none';
+    }
+    
+    // 处理登录成功
+    function handleLoginSuccess(data) {
+      log('处理登录成功: ' + JSON.stringify(data));
+      
+      // 保存登录信息
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('isLoggedIn', 'true');
+        localStorage.setItem('loginTime', Date.now().toString());
+      }
+      
+      if (data.userInfo) {
+        localStorage.setItem('username', data.userInfo.username);
+        if (data.userInfo) {
+          localStorage.setItem('userInfo', JSON.stringify(data.userInfo));
+        }
+      }
+      
+      // 更新UI
+      initPage();
+      
+      // 隐藏登录表单
+      hideLoginForm();
+    }
+    
+    // 检查登录状态
+    function checkLoginStatus() {
+      try {
+        log('检查登录状态...');
+        
+        // 检查 URL 参数中是否有登录信息
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('token')) {
+          const token = urlParams.get('token');
+          const username = urlParams.get('username') || '用户';
+          
+          log('从 URL 参数获取到登录信息');
+          
+          // 保存到 localStorage
+          localStorage.setItem('token', token);
+          localStorage.setItem('username', username);
+          localStorage.setItem('isLoggedIn', 'true');
+          localStorage.setItem('loginTime', Date.now().toString());
+          
+          // 清除 URL 参数
+          const newUrl = window.location.pathname + window.location.hash;
+          history.replaceState(null, '', newUrl);
+          
+          return true;
+        }
+        
+        // 检查 localStorage
+        const token = localStorage.getItem('token');
+        const username = localStorage.getItem('username');
+        const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+        
+        log('localStorage 检查: token=' + (token ? '存在' : '不存在') + 
+            ', username=' + (username ? username : '不存在') + 
+            ', isLoggedIn=' + isLoggedIn);
+        
+        if (token && (username || isLoggedIn)) {
+          log('检测到登录状态');
+          return true;
+        } else {
+          log('未检测到登录状态');
+          return false;
+        }
+      } catch (e) {
+        log('检查登录状态失败: ' + e.message);
+        return false;
+      }
+    }
+    
+    // 初始化页面
+    function initPage() {
+      log('初始化页面');
+      
+      // 检查登录状态
+      if (checkLoginStatus()) {
+        log('已登录状态');
+        var userInfo = document.getElementById('userInfo');
+        var username = document.getElementById('username');
+        var loginBtn = document.getElementById('loginBtn');
+        
+        // 显示用户信息
+        username.textContent = localStorage.getItem('username') || '用户';
+        loginBtn.style.display = 'none';
+        userInfo.style.display = 'block';
+      } else {
+        log('未登录状态');
+        var userInfo = document.getElementById('userInfo');
+        var loginBtn = document.getElementById('loginBtn');
+        
+        // 显示登录按钮
+        loginBtn.style.display = 'block';
+        userInfo.style.display = 'none';
+      }
+      
+      // 检查环境
+      checkEnvironment();
+    }
+    
+    // 检查环境
+    function checkEnvironment() {
+      log('浏览器信息: ' + navigator.userAgent);
+      log('当前URL: ' + window.location.href);
+      log('referrer: ' + document.referrer);
+      log('是否在iframe中: ' + isInIframe());
+      log('window.parent可用: ' + (window.parent && window.parent !== window));
+      log('plus对象: ' + (typeof plus !== 'undefined'));
+      log('android对象: ' + (typeof android !== 'undefined'));
+      log('webkit对象: ' + (typeof webkit !== 'undefined'));
+      log('document.domain: ' + document.domain);
+      log('window.origin: ' + window.origin);
+      
+      // 检查 Android 接口
+      if (window.android) {
         log('检测到 Android 接口');
         
-        // 检查 openLogin 方法
         if (typeof window.android.openLogin === 'function') {
           log('android.openLogin 方法可用');
         } else {
           log('android.openLogin 方法不可用');
         }
         
-        // 检查 webview 对象
         if (window.android.webview) {
           log('android.webview 对象可用');
           
@@ -167,350 +326,257 @@
           } else {
             log('android.webview.openLogin 方法不可用');
           }
-        } else {
-          log('android.webview 对象不可用');
         }
-      } else {
-        log('未检测到 Android 接口');
       }
     }
-      document.addEventListener('DOMContentLoaded', function() {
-    var loginBtn = document.getElementById('loginBtn');
-    if (loginBtn) {
-      loginBtn.addEventListener('click', function() {
-        log('点击登录按钮');
-        sendLoginRequest();
-      });
-    }
-  });
-    // 发送登录请求
-   function sendLoginRequest() {
-    log('发送登录请求');
     
-    // 检查是否在浏览器环境中
-    if (isInBrowserEnv()) {
-      log('检测到浏览器环境');
+    // 发送登录请求
+    function sendLoginRequest() {
+      log('发送登录请求');
       
-      // 检查是否在 iframe 中
-      if (isInIframe()) {
-        log('检测到在 iframe 中，尝试与父窗口通信');
+      // 检查 android 对象
+      if (window.android) {
+        log('检测到 android 对象，尝试调用原生方法');
         
-        // 使用 postMessage 发送登录请求到父窗口
-        log('使用 postMessage 发送登录请求到父窗口');
-        window.parent.postMessage({
-          action: 'openLogin',
-          timestamp: new Date().getTime(),
-          // 请求真实跳转
-          requestRealNavigation: true
-        }, '*');
-        
-        log('已通过 iframe 通信发送登录请求');
-        return;
-      }
-      
-      // 如果不在 iframe 中，显示模拟登录表单
-      log('不在 iframe 中，显示模拟登录表单');
-      showLoginForm();
-      return;
-    }
-      
-      // 方法1: 尝试使用 URL Scheme
-      try {
-        log('尝试使用 URL Scheme');
-        window.location.href = 'uniwebview://openLogin';
-        log('已发送 URL Scheme 请求');
-        return;
-      } catch (e) {
-        log('URL Scheme 失败: ' + e.message);
-      }
-      
-      // 方法2: 尝试使用 Android 接口
-      try {
-        if (window.android && typeof window.android.openLogin === 'function') {
-          log('使用 Android 接口');
-          window.android.openLogin();
-          log('已调用 android.openLogin()');
-          return;
-        }
-      } catch (e) {
-        log('Android 接口调用失败: ' + e.message);
-      }
-      
-      // 方法3: 尝试使用 WebView 接口
-      try {
-        if (window.android && 
-            window.android.webview && 
-            typeof window.android.webview.openLogin === 'function') {
-          log('使用 WebView 接口');
-          window.android.webview.openLogin();
-          log('已调用 android.webview.openLogin()');
-          return;
-        }
-      } catch (e) {
-        log('WebView 接口调用失败: ' + e.message);
-      }
-      
-      // 方法4: 尝试使用自定义事件
-      try {
-        log('使用自定义事件');
-        var event = new CustomEvent('h5Login', {
-          detail: {
-            action: 'openLogin',
-            timestamp: new Date().getTime()
-          },
-          bubbles: true,
-          cancelable: true
-        });
-        document.dispatchEvent(event);
-        log('已发送自定义事件');
-        return;
-      } catch (e) {
-        log('自定义事件失败: ' + e.message);
-      }
-      
-      // 方法5: 尝试使用 window.parent
-      try {
-        if (window.parent && window.parent !== window) {
-          log('使用 window.parent');
-          
-          // 尝试调用父窗口的方法
-          if (window.parent.openLogin) {
-            log('调用 window.parent.openLogin()');
-            window.parent.openLogin();
+        // 尝试多种方法调用原生登录
+        try {
+          // 方法1: 直接调用 JSBridge
+          if (window.JSBridge && window.JSBridge.callHandler) {
+            log('使用 JSBridge.callHandler');
+            window.JSBridge.callHandler('openLogin', {}, function(response) {
+              log('JSBridge 回调: ' + response);
+            });
             return;
           }
           
-          // 尝试使用 postMessage
-          log('使用 window.parent.postMessage()');
+          // 方法2: 使用 plus 对象
+          if (window.plus) {
+            log('使用 plus.runtime.openURL');
+            plus.runtime.openURL('uniwebview://openLogin');
+            return;
+          }
+          
+          // 方法3: 使用自定义事件
+          log('使用自定义事件');
+          var event = new CustomEvent('h5Login', {
+            detail: {
+              action: 'openLogin',
+              timestamp: new Date().getTime()
+            },
+            bubbles: true,
+            cancelable: true
+          });
+          document.dispatchEvent(event);
+          
+          // 方法4: 使用 android 对象
+          if (window.android.login) {
+            log('调用 android.login()');
+            window.android.login();
+            return;
+          }
+          
+          if (window.android.webview && window.android.webview.login) {
+            log('调用 android.webview.login()');
+            window.android.webview.login();
+            return;
+          }
+          
+          // 方法5: 使用 URL Scheme
+          log('使用 iframe 加载 URL Scheme');
+          var iframe = document.createElement('iframe');
+          iframe.style.display = 'none';
+          iframe.src = 'uniwebview://openLogin';
+          document.body.appendChild(iframe);
+          setTimeout(function() {
+            document.body.removeChild(iframe);
+          }, 100);
+          
+          log('已尝试多种方法调用原生登录');
+        } catch (e) {
+          log('调用原生方法失败: ' + e.message);
+        }
+        return;
+      }
+      
+      // 检查是否在浏览器环境中
+      if (isInBrowserEnv()) {
+        log('检测到浏览器环境');
+        
+        // 检查是否在 iframe 中
+        if (isInIframe()) {
+          log('检测到在 iframe 中，尝试与父窗口通信');
+          
+          // 使用 postMessage 发送登录请求到父窗口
+          log('使用 postMessage 发送登录请求到父窗口');
           window.parent.postMessage({
             action: 'openLogin',
-            timestamp: new Date().getTime()
+            timestamp: new Date().getTime(),
+            // 请求真实跳转
+            requestRealNavigation: true
           }, '*');
-          log('已发送 postMessage');
+          
+          log('已通过 iframe 通信发送登录请求');
           return;
         }
+        
+        // 如果不在 iframe 中，显示模拟登录表单
+        log('不在 iframe 中，显示模拟登录表单');
+        showLoginForm();
+        return;
+      }
+      
+      // 其他环境的处理
+      log('尝试使用 URL Scheme');
+      try {
+        window.location.href = 'uniwebview://openLogin';
+        log('已发送 URL Scheme 请求');
       } catch (e) {
-        log('调用 window.parent 方法失败: ' + e.message);
+        log('URL Scheme 失败: ' + e.message);
+        showLoginForm();
+      }
+    }
+    
+    // 添加事件监听器
+    document.addEventListener('DOMContentLoaded', function() {
+      // 初始化页面
+      initPage();
+      
+      // 登录按钮点击事件
+      var loginBtn = document.getElementById('loginBtn').querySelector('button');
+      if (loginBtn) {
+        loginBtn.addEventListener('click', function() {
+          log('点击登录按钮');
+          sendLoginRequest();
+        });
       }
       
-      // 最后的备用方法: 显示模拟登录表单
-      log('所有方法都失败，显示模拟登录表单');
-      showLoginForm();
-    }
-    
-    // 显示模拟登录表单
-    function showLoginForm() {
-      // 创建模拟登录表单
-      var loginForm = document.createElement('div');
-      loginForm.id = 'loginFormOverlay';
-      loginForm.style.position = 'fixed';
-      loginForm.style.top = '0';
-      loginForm.style.left = '0';
-      loginForm.style.width = '100%';
-      loginForm.style.height = '100%';
-      loginForm.style.backgroundColor = 'rgba(0,0,0,0.8)';
-      loginForm.style.zIndex = '10000';
-      loginForm.style.display = 'flex';
-      loginForm.style.justifyContent = 'center';
-      loginForm.style.alignItems = 'center';
-      
-      loginForm.innerHTML = `
-        <div style="background: white; padding: 20px; border-radius: 10px; width: 80%; max-width: 300px;">
-          <h3 style="margin-top: 0; text-align: center;">模拟登录</h3>
-          <div style="margin-bottom: 15px;">
-            <input type="text" id="loginUsername" placeholder="用户名" style="width: 100%; padding: 8px; box-sizing: border-box;">
-          </div>
-          <div style="margin-bottom: 15px;">
-            <input type="password" id="loginPassword" placeholder="密码" style="width: 100%; padding: 8px; box-sizing: border-box;">
-          </div>
-          <div style="display: flex; justify-content: space-between;">
-            <button id="cancelLogin" style="padding: 8px 15px; background: #ccc; border: none; border-radius: 5px;">取消</button>
-            <button id="submitLogin" style="padding: 8px 15px; background: #007AFF; color: white; border: none; border-radius: 5px;">登录</button>
-          </div>
-        </div>
-      `;
-      
-      // 添加到页面
-      document.body.appendChild(loginForm);
-      
-      // 添加事件监听器
-      document.getElementById('cancelLogin').addEventListener('click', function() {
-        document.body.removeChild(loginForm);
-      });
-      
-      document.getElementById('submitLogin').addEventListener('click', function() {
-        var username = document.getElementById('loginUsername').value;
-        var password = document.getElementById('loginPassword').value;
-        
-        if (!username || !password) {
-          alert('请输入用户名和密码');
-          return;
-        }
-        
-        // 模拟登录成功
-        log('模拟登录成功');
-        document.body.removeChild(loginForm);
-        
-        // 更新 UI
-        var userInfo = document.getElementById('userInfo');
-        var usernameSpan = document.getElementById('username');
-        var loginBtn = document.getElementById('loginBtn');
-        
-        usernameSpan.textContent = username;
-        loginBtn.style.display = 'none';
-        userInfo.style.display = 'block';
-        
-        // 保存登录状态
-        localStorage.setItem('token', 'mock_token_' + new Date().getTime());
-        localStorage.setItem('username', username);
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('loginTime', Date.now().toString());
-        
-        log('登录成功，UI已更新');
-      });
-    }
-    
-    // 退出登录
-    function logout() {
-      log('退出登录');
-      
-      // 清除登录状态
-      localStorage.removeItem('token');
-      localStorage.removeItem('username');
-      localStorage.removeItem('isLoggedIn');
-      localStorage.removeItem('loginTime');
-      
-      // 更新 UI
-      var userInfo = document.getElementById('userInfo');
-      var loginBtn = document.getElementById('loginBtn');
-      
-      loginBtn.style.display = 'block';
-      userInfo.style.display = 'none';
-      
-      log('已退出登录，UI已更新');
-    }
-    
-    // 检查登录状态
-    function checkLoginStatus() {
-    try {
-      log('检查登录状态...');
-      
-      // 检查 URL 参数中是否有登录信息
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has('token')) {
-        const token = urlParams.get('token');
-        const username = urlParams.get('username') || '用户';
-        
-        log('从 URL 参数获取到登录信息');
-        
-        // 保存到 localStorage
-        localStorage.setItem('token', token);
-        localStorage.setItem('username', username);
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('loginTime', Date.now().toString());
-        
-        // 清除 URL 参数
-        const newUrl = window.location.pathname + window.location.hash;
-        history.replaceState(null, '', newUrl);
-        
-        return true;
+      // 退出登录按钮点击事件
+      var logoutBtn = document.getElementById('logoutBtn');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', function() {
+          log('点击退出登录按钮');
+          
+          // 清除登录状态
+          localStorage.removeItem('token');
+          localStorage.removeItem('username');
+          localStorage.removeItem('userInfo');
+          localStorage.removeItem('isLoggedIn');
+          localStorage.removeItem('loginTime');
+          
+          // 更新UI
+          initPage();
+          
+          log('已退出登录');
+        });
       }
       
-      // 检查 localStorage
-      const token = localStorage.getItem('token');
-      const username = localStorage.getItem('username');
-      const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-      
-      log('localStorage 检查: token=' + (token ? '存在' : '不存在') + 
-          ', username=' + (username ? username : '不存在') + 
-          ', isLoggedIn=' + isLoggedIn);
-      
-      if (token && (username || isLoggedIn)) {
-        log('检测到登录状态');
-        return true;
-      } else {
-        log('未检测到登录状态');
-        return false;
+      // 登录表单提交按钮点击事件
+      var submitLoginBtn = document.getElementById('submitLoginBtn');
+      if (submitLoginBtn) {
+        submitLoginBtn.addEventListener('click', function() {
+          var username = document.getElementById('usernameInput').value;
+          var password = document.getElementById('passwordInput').value;
+          
+          if (!username || !password) {
+            log('请输入用户名和密码');
+            return;
+          }
+          
+          log('提交登录表单: ' + username);
+          
+          // 模拟登录成功
+          var loginResult = {
+            action: 'loginSuccess',
+            token: 'mock_token_' + Date.now(),
+            userInfo: {
+              username: username,
+              avatar: 'https://example.com/avatar.jpg'
+            }
+          };
+          
+          handleLoginSuccess(loginResult);
+        });
       }
-    } catch (e) {
-      log('检查登录状态失败: ' + e.message);
-      return false;
-    }
-  }
-    
-    // 初始化页面
-    function initPage() {
-      log('初始化页面');
       
-      // 检查登录状态
-     function initPage() {
-    log('初始化页面');
-    
-    // 检查登录状态
-    if (checkLoginStatus()) {
-      log('已登录状态');
-      var userInfo = document.getElementById('userInfo');
-      var username = document.getElementById('username');
-      var loginBtn = document.getElementById('loginBtn');
+      // 取消登录按钮点击事件
+      var cancelLoginBtn = document.getElementById('cancelLoginBtn');
+      if (cancelLoginBtn) {
+        cancelLoginBtn.addEventListener('click', function() {
+          log('取消登录');
+          hideLoginForm();
+        });
+      }
       
-      // 显示用户信息
-      username.textContent = localStorage.getItem('username') || '用户';
-      loginBtn.style.display = 'none';
-      userInfo.style.display = 'block';
-    } else {
-      log('未登录状态');
-      var userInfo = document.getElementById('userInfo');
-      var loginBtn = document.getElementById('loginBtn');
-      
-      // 显示登录按钮
-      loginBtn.style.display = 'block';
-      userInfo.style.display = 'none';
-    }
-  }
-      
-      // 添加登录按钮事件
-      document.getElementById('loginBtn').addEventListener('click', function() {
-        sendLoginRequest();
+      // 调试按钮点击事件
+      document.getElementById('checkEnvBtn').addEventListener('click', function() {
+        log('检查环境');
+        checkEnvironment();
       });
       
-      // 添加退出登录按钮事件
-      document.getElementById('logoutBtn').addEventListener('click', function() {
-        logout();
-      });
-      
-      // 添加测试按钮事件
-      document.getElementById('testUrlScheme').addEventListener('click', function() {
-        log('测试 URL Scheme');
-        try {
-          window.location.href = 'uniwebview://openLogin';
-          log('已发送 URL Scheme 请求');
-        } catch (e) {
-          log('URL Scheme 失败: ' + e.message);
-        }
-      });
-      
-      document.getElementById('testPostMessage').addEventListener('click', function() {
+      document.getElementById('testPostMessageBtn').addEventListener('click', function() {
         log('测试 PostMessage');
-        try {
+        if (window.parent && window.parent !== window) {
           window.parent.postMessage({
             action: 'openLogin',
             test: true,
             source: 'testButton'
           }, '*');
           log('已发送 PostMessage');
-        } catch (e) {
-          log('PostMessage 失败: ' + e.message);
+        } else {
+          log('window.parent 不可用或等于 window');
         }
       });
       
-      document.getElementById('testCustomEvent').addEventListener('click', function() {
+      document.getElementById('testAndroidBtn').addEventListener('click', function() {
+        log('测试 Android 接口');
+        if (window.android) {
+          log('android 对象可用');
+          
+          if (typeof window.android.openLogin === 'function') {
+            log('调用 android.openLogin()');
+            window.android.openLogin();
+          } else {
+            log('android.openLogin 方法不可用');
+          }
+          
+          if (window.android.webview) {
+            log('android.webview 对象可用');
+            
+            if (typeof window.android.webview.openLogin === 'function') {
+              log('调用 android.webview.openLogin()');
+              window.android.webview.openLogin();
+            } else {
+              log('android.webview.openLogin 方法不可用');
+            }
+          }
+        } else {
+          log('android 对象不可用');
+        }
+      });
+      
+      document.getElementById('testUrlSchemeBtn').addEventListener('click', function() {
+        log('测试 URL Scheme');
+        try {
+          var iframe = document.createElement('iframe');
+          iframe.style.display = 'none';
+          iframe.src = 'uniwebview://openLogin';
+          document.body.appendChild(iframe);
+          setTimeout(function() {
+            document.body.removeChild(iframe);
+          }, 100);
+          log('已发送 URL Scheme 请求');
+        } catch (e) {
+          log('URL Scheme 失败: ' + e.message);
+        }
+      });
+      
+      document.getElementById('testCustomEventBtn').addEventListener('click', function() {
         log('测试自定义事件');
         try {
           var event = new CustomEvent('h5Login', {
             detail: {
               action: 'openLogin',
-              test: true,
-              source: 'testButton'
+              timestamp: new Date().getTime()
             },
             bubbles: true,
             cancelable: true
@@ -521,108 +587,7 @@
           log('自定义事件失败: ' + e.message);
         }
       });
-      
-      document.getElementById('testAndroidInterface').addEventListener('click', function() {
-        log('测试 Android 接口');
-        try {
-          if (window.android && typeof window.android.openLogin === 'function') {
-            window.android.openLogin();
-            log('已调用 android.openLogin()');
-          } else {
-            log('android.openLogin 不可用');
-          }
-        } catch (e) {
-          log('Android 接口调用失败: ' + e.message);
-        }
-      });
-      
-      document.getElementById('testIframeMethod').addEventListener('click', function() {
-        log('测试 iframe 方法');
-        try {
-          if (window.parent && window.parent !== window) {
-            if (window.parent.openLogin) {
-              window.parent.openLogin();
-              log('已调用 window.parent.openLogin()');
-            } else if (window.parent.getApp && typeof window.parent.getApp === 'function') {
-              var app = window.parent.getApp();
-              if (app && app.openLogin) {
-                app.openLogin();
-                log('已调用 window.parent.getApp().openLogin()');
-              } else {
-                log('window.parent.getApp().openLogin 不可用');
-              }
-            } else {
-              log('window.parent.openLogin 和 window.parent.getApp 都不可用');
-            }
-          } else {
-            log('不在 iframe 中或 window.parent 不可用');
-          }
-        } catch (e) {
-          log('iframe 方法调用失败: ' + e.message);
-        }
-      });
-      
-      document.getElementById('showLoginForm').addEventListener('click', function() {
-        log('显示模拟登录表单');
-        showLoginForm();
-      });
-      
-      document.getElementById('clearLogs').addEventListener('click', function() {
-        var logArea = document.getElementById('logArea');
-        while (logArea.firstChild) {
-          if (logArea.firstChild.id === 'copyLogs') {
-            logArea.firstChild = logArea.firstChild.nextSibling;
-          } else {
-            logArea.removeChild(logArea.firstChild);
-          }
-        }
-        log('日志已清除');
-      });
-      
-      // 添加复制日志按钮事件
-      document.getElementById('copyLogs').addEventListener('click', function() {
-        var logArea = document.getElementById('logArea');
-        var logs = Array.from(logArea.getElementsByTagName('p')).map(p => p.textContent).join('\n');
-        
-        // 复制到剪贴板
-        var textarea = document.createElement('textarea');
-        textarea.value = logs;
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-        
-        log('日志已复制到剪贴板');
-      });
-    }
-    
-    // 处理登录成功
-    function handleLoginSuccess(data) {
-      log('处理登录成功: ' + JSON.stringify(data));
-      
-      // 更新 UI
-      var userInfo = document.getElementById('userInfo');
-      var username = document.getElementById('username');
-      var loginBtn = document.getElementById('loginBtn');
-      
-      if (data && data.token) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('loginTime', Date.now().toString());
-        
-        if (data.userInfo) {
-          localStorage.setItem('username', data.userInfo.username);
-          localStorage.setItem('userInfo', JSON.stringify(data.userInfo));
-          username.textContent = data.userInfo.username;
-        }
-        
-        // 更新UI
-        loginBtn.style.display = 'none';
-        userInfo.style.display = 'block';
-        
-        log('登录成功，UI已更新');
-      }
-    }
+    });
     
     // 监听消息
     window.addEventListener('message', function(event) {
@@ -643,80 +608,82 @@
       }
     });
     
-    // 页面加载完成
-    document.addEventListener('DOMContentLoaded', function() {
-      log('页面加载完成');
-      initPage();
+    // 创建全局函数
+    window.openLoginFromApp = function() {
+      log('openLoginFromApp 被调用');
+      try {
+        // 尝试多种方法
+        
+        // 方法1: 使用 URL Scheme
+        window.location.href = 'uniwebview://openLogin';
+        
+        // 方法2: 使用自定义事件
+        var event = new CustomEvent('h5Login', {
+          detail: {
+            action: 'openLogin',
+            timestamp: new Date().getTime()
+          },
+          bubbles: true,
+          cancelable: true
+        });
+        document.dispatchEvent(event);
+        
+        // 方法3: 使用 postMessage
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({
+            action: 'openLogin',
+            source: 'injectedMethod'
+          }, '*');
+        }
+        
+        log('已尝试多种方法调用登录');
+      } catch(e) {
+        log('调用登录失败: ' + e);
+      }
+    };
+    
+    // 尝试直接调用 App 的方法
+    setTimeout(function() {
+      log('尝试直接调用 App 的方法');
       
-      // 添加调试信息
-      log('浏览器信息: ' + navigator.userAgent);
-      log('当前URL: ' + window.location.href);
-      log('referrer: ' + document.referrer);
-      log('是否在iframe中: ' + isInIframe());
-      log('window.parent可用: ' + (window.parent !== window.self));
-      log('plus对象: ' + (typeof window.plus !== 'undefined'));
-      log('android对象: ' + (typeof window.android !== 'undefined'));
-      log('webkit对象: ' + (typeof window.webkit !== 'undefined'));
-      log('document.domain: ' + document.domain);
-      log('window.origin: ' + window.origin);
-      
-      // 检查 Android 接口
-      if (typeof window.android !== 'undefined') {
-        checkAndroidInterface();
+      try {
+        if (window.android && window.android.openLogin) {
+          log('调用 window.android.openLogin()');
+          window.android.openLogin();
+        } else {
+          log('window.android.openLogin 不可用');
+        }
+      } catch(e) {
+        log('调用 window.android.openLogin 失败: ' + e.message);
       }
       
-      // 添加自定义 openLogin 方法
-      window.openLogin = function() {
-        log('全局 openLogin 方法被调用');
-        window.parent.postMessage({
-          action: 'openLogin',
-          source: 'globalMethod'
-        }, '*');
-      };
+      try {
+        if (window.openLoginFromApp) {
+          log('调用 window.openLoginFromApp()');
+          window.openLoginFromApp();
+        } else {
+          log('window.openLoginFromApp 不可用');
+        }
+      } catch(e) {
+        log('调用 window.openLoginFromApp 失败: ' + e.message);
+      }
       
-      // 尝试直接调用 App 的方法
-      setTimeout(function() {
-        log('尝试直接调用 App 的方法');
-        
-        try {
-          if (window.android && window.android.openLogin) {
-            log('调用 window.android.openLogin()');
-            window.android.openLogin();
-          } else {
-            log('window.android.openLogin 不可用');
-          }
-        } catch(e) {
-          log('调用 window.android.openLogin 失败: ' + e.message);
+      try {
+        if (window.parent && window.parent !== window) {
+          log('发送 postMessage 到 parent');
+          window.parent.postMessage({
+            action: 'openLogin',
+            source: 'delayedPostMessage',
+            // 请求真实跳转
+            requestRealNavigation: true
+          }, '*');
+        } else {
+          log('window.parent 不可用或等于 window');
         }
-        
-        try {
-          if (window.openLoginFromApp) {
-            log('调用 window.openLoginFromApp()');
-            window.openLoginFromApp();
-          } else {
-            log('window.openLoginFromApp 不可用');
-          }
-        } catch(e) {
-          log('调用 window.openLoginFromApp 失败: ' + e.message);
-        }
-        
-        try {
-          if (window.parent && window.parent !== window) {
-            log('发送 postMessage 到 parent');
-            window.parent.postMessage({
-              action: 'openLogin',
-              source: 'delayedPostMessage',
-              // 请求真实跳转
-              requestRealNavigation: true
-            }, '*');
-          } else {
-            log('window.parent 不可用或等于 window');
-          }
-        } catch(e) {
-          log('发送 postMessage 失败: ' + e.message);
-        }
-      }, 3000);
-    });
+      } catch(e) {
+        log('发送 postMessage 失败: ' + e.message);
+      }
+    }, 3000);
     
     // 添加全局错误处理
     window.onerror = function(message, source, lineno, colno, error) {
