@@ -8,55 +8,104 @@
 <body>
   <div id="app">
     <h1>购物网站</h1>
-    <button id="loginBtn" style="display: none;">登录</button>
+    <button id="loginBtn">登录</button>
     <div id="userInfo" style="display: none;">欢迎您，<span id="username"></span></div>
-  </div><script data-cfasync="false">
+  </div>
+
+  <script>
+    // 添加日志辅助调试
+    function log(msg) {
+      console.log(msg);
+      // 可以添加在页面上显示日志的元素
+      var logDiv = document.getElementById('log') || document.createElement('div');
+      if(!document.getElementById('log')) {
+        logDiv.id = 'log';logDiv.style.position = 'fixed';
+        logDiv.style.bottom = '0';
+        logDiv.style.left = '0';
+        logDiv.style.right = '0';
+        logDiv.style.background = 'rgba(0,0,0,0.7)';
+        logDiv.style.color = 'white';
+        logDiv.style.padding = '10px';
+        logDiv.style.fontSize = '12px';
+        logDiv.style.maxHeight = '100px';
+        logDiv.style.overflowY = 'auto';
+        document.body.appendChild(logDiv);
+      }
+      var p = document.createElement('p');
+      p.textContent = new Date().toLocaleTimeString() + ': ' + msg;
+      logDiv.appendChild(p);
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+    
     // 检测是否在App环境中
     function isInApp() {
-      return typeof window.AppSDK !== 'undefined';
+      log('检测App环境: ' + (window.AppSDK !== undefined));
+      return window.AppSDK !== undefined;
     }
 
-    // 页面加载完成
-    document.addEventListener('DOMContentLoaded', function() {
+    // 初始化页面
+    function initPage() {
+      log('初始化页面');
       const loginBtn = document.getElementById('loginBtn');
       const userInfo = document.getElementById('userInfo');
       
       // 检查登录状态
       const token = localStorage.getItem('token');
       if (token) {
-        userInfo.style.display = 'block';
-        document.getElementById('username').innerText = localStorage.getItem('username') || '用户';
+        userInfo.style.display = 'block';document.getElementById('username').innerText = localStorage.getItem('username') || '用户';loginBtn.style.display = 'none';
       } else {
+        userInfo.style.display = 'none';
         loginBtn.style.display = 'block';
-      }
-      
-      // 监听 SDK 加载完成
-      document.addEventListener('AppSDKReady', function() {
-        console.log('App SDK 已加载');
-        // 绑定登录按钮点击事件
-        loginBtn.addEventListener('click', function() {
-          if (isInApp()) {
-            // 在 App 内，调用 SDK 打开登录页面
-            window.AppSDK.openLogin();
-            // 设置登录成功的回调
-            window.AppSDK.setLoginCallback(function(data) {
-              console.log('登录成功', data);
-              // 存储 token
-              localStorage.setItem('token', data.token);
-              if (data.userInfo) {
-                localStorage.setItem('username', data.userInfo.username);
-                document.getElementById('username').innerText = data.userInfo.username;
-              }
-              // 更新 UI
-              loginBtn.style.display = 'none';
-              userInfo.style.display = 'block';
-            });
-          } else {
-            // 不在 App 内，跳转到普通登录页面
-            window.location.href = '/login.html';
-          }
-        });
+      }// 绑定登录按钮点击事件
+      loginBtn.addEventListener('click', function() {
+        log('点击登录按钮');
+        if (isInApp()) {
+          log('检测到App环境，调用AppSDK.openLogin()');
+          // 在App内，调用SDK打开登录页面
+          window.AppSDK.openLogin();// 设置登录成功的回调
+          window.AppSDK.setLoginCallback(function(data) {
+            log('收到登录成功回调: ' + JSON.stringify(data));
+            
+            // 存储token和用户信息
+            localStorage.setItem('token', data.token);
+            if (data.userInfo) {
+              localStorage.setItem('username', data.userInfo.username);document.getElementById('username').innerText = data.userInfo.username;
+            }
+            
+            // 更新UI
+            loginBtn.style.display = 'none';
+            userInfo.style.display = 'block';
+          });
+        } else {
+          log('非App环境，跳转到网页登录页面');
+          // 不在App内，跳转到普通登录页面
+          window.location.href = '/login.html';
+        }
       });
+    }
+
+    // 页面加载完成document.addEventListener('DOMContentLoaded', function() {
+      log('页面加载完成');
+      
+      // 等待AppSDK注入
+      if (isInApp()) {
+        log('已检测到AppSDK');
+        initPage();
+      } else {
+        log('等待AppSDK注入');
+        // 监听AppSDK加载事件document.addEventListener('AppSDKReady', function() {
+          log('AppSDK加载完成事件触发');
+          initPage();
+        });
+        
+        // 防止AppSDK注入失败导致页面无法使用
+        setTimeout(function() {
+          if (!isInApp()) {
+            log('AppSDK注入超时，初始化页面');
+            initPage();
+          }
+        }, 3000);
+      }
     });
   </script>
 </body>
