@@ -79,9 +79,9 @@
     
     <!-- 调试按钮 -->
     <div id="debugButtons">
+      <button class="debug-btn" id="testAndroid">测试 Android 接口</button>
       <button class="debug-btn" id="testPostMessage">测试 postMessage</button>
       <button class="debug-btn" id="testCustomEvent">测试自定义事件</button>
-      <button class="debug-btn" id="testDirectClick">测试直接点击</button>
       <button class="debug-btn" id="testAllMethods">测试所有方法</button>
     </div>
   </div>
@@ -137,9 +137,73 @@
       );
     }
     
+    // 检查 Android 接口
+    function checkAndroidInterface() {
+      if (window.android) {
+        log('检测到 Android 接口，可用方法:');
+        for (var prop in window.android) {
+          if (typeof window.android[prop] === 'function') {
+            log('- android.' + prop);
+          } else {
+            log('- android.' + prop + ' (非函数)');
+          }
+        }
+        return true;
+      }
+      log('未检测到 Android 接口');
+      return false;
+    }
+    
+    // 使用 Android 接口打开登录页面
+    function openLoginWithAndroid() {
+      if (window.android) {
+        log('尝试使用 Android 接口');
+        
+        // 尝试多种可能的方法名
+        var methodNames = ['openLogin', 'login', 'startLogin', 'showLogin', 'navigateToLogin'];
+        var success = false;
+        
+        for (var i = 0; i < methodNames.length; i++) {
+          var methodName = methodNames[i];
+          if (typeof window.android[methodName] === 'function') {
+            log('调用 android.' + methodName + '()');
+            try {
+              window.android[methodName]();
+              success = true;
+              log('android.' + methodName + '() 调用成功');
+              break;
+            } catch (e) {
+              log('调用 android.' + methodName + ' 失败: ' + e.message);
+            }
+          }
+        }
+        
+        // 如果没有找到匹配的方法，尝试通用方法
+        if (!success && typeof window.android.callNative === 'function') {
+          log('尝试使用 android.callNative("openLogin")');
+          try {
+            window.android.callNative('openLogin');
+            success = true;
+            log('android.callNative("openLogin") 调用成功');
+          } catch (e) {
+            log('调用 android.callNative 失败: ' + e.message);
+          }
+        }
+        
+        return success;
+      }
+      return false;
+    }
+    
     // 发送登录请求的函数
     function sendLoginRequest() {
       log('发送登录请求');
+      
+      // 优先使用 Android 接口
+      if (openLoginWithAndroid()) {
+        log('已通过 Android 接口发送登录请求');
+        return;
+      }
       
       // 方法1: 使用 postMessage
       try {
@@ -168,7 +232,7 @@
         log('方法3: 尝试使用 location.href');
         // 创建一个临时链接
         var a = document.createElement('a');
-        a.href = 'uniwebview://openLogin?t=' + new Date().getTime();
+        a.href = 'uniwebview://openLogin';
         a.style.display = 'none';
         document.body.appendChild(a);
         a.click();
@@ -179,15 +243,18 @@
         log('location.href 失败: ' + e.message);
       }
       
-      // 方法4: 尝试直接调用全局方法
+      // 方法4: 尝试调用全局方法
       try {
         log('方法4: 尝试调用全局方法');
         if (window.openLogin) {
           window.openLogin();
-        } else if (window.android && window.android.openLogin) {
-          window.android.openLogin();
-        } else if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.openLogin) {
-          window.webkit.messageHandlers.openLogin.postMessage({});
+          log('调用全局 openLogin() 成功');
+        } else if (window.AppSDK && window.AppSDK.openLogin) {
+          window.AppSDK.openLogin();
+          log('调用 AppSDK.openLogin() 成功');
+        } else if (window.UniAppJSBridge && window.UniAppJSBridge.postMessage) {
+          window.UniAppJSBridge.postMessage({ action: 'openLogin' });
+          log('调用 UniAppJSBridge.postMessage() 成功');
         }
       } catch(e) {
         log('调用全局方法失败: ' + e.message);
@@ -200,8 +267,15 @@
     function testAllMethods() {
       log('测试所有通信方法');
       
+      // 测试 Android 接口
+      if (window.android) {
+        log('测试 Android 接口');
+        openLoginWithAndroid();
+      }
+      
       // 测试 postMessage
       try {
+        log('测试 postMessage');
         window.parent.postMessage({
           action: 'openLogin',
           test: true,
@@ -215,6 +289,7 @@
       
       // 测试自定义事件
       try {
+        log('测试自定义事件');
         var event = new CustomEvent('h5Login', { 
           detail: { 
             action: 'openLogin', 
@@ -231,6 +306,7 @@
       
       // 测试 URL Scheme
       try {
+        log('测试 URL Scheme');
         var iframe = document.createElement('iframe');
         iframe.style.display = 'none';
         iframe.src = 'uniwebview://openLogin?test=true&method=urlScheme&t=' + new Date().getTime();
@@ -252,9 +328,9 @@
       var loginBtn = document.getElementById('loginBtn');
       var userInfo = document.getElementById('userInfo');
       var username = document.getElementById('username');
+      var testAndroid = document.getElementById('testAndroid');
       var testPostMessage = document.getElementById('testPostMessage');
       var testCustomEvent = document.getElementById('testCustomEvent');
-      var testDirectClick = document.getElementById('testDirectClick');
       var testAllMethods = document.getElementById('testAllMethods');
       
       // 检查登录状态
@@ -277,6 +353,12 @@
       });
       
       // 测试按钮
+      testAndroid.addEventListener('click', function() {
+        log('测试 Android 接口');
+        checkAndroidInterface();
+        openLoginWithAndroid();
+      });
+      
       testPostMessage.addEventListener('click', function() {
         log('测试 postMessage');
         window.parent.postMessage({
@@ -306,13 +388,6 @@
         }
       });
       
-      testDirectClick.addEventListener('click', function() {
-        log('测试直接点击');
-        // 这个按钮会触发我们注入的点击事件监听器
-        loginBtn.click();
-        log('已触发登录按钮点击');
-      });
-      
       testAllMethods.addEventListener('click', function() {
         log('测试所有方法');
         testAllMethods();
@@ -338,6 +413,8 @@
           // 更新UI
           loginBtn.style.display = 'none';
           userInfo.style.display = 'block';
+          
+          log('登录成功，UI已更新');
         }
       });
     }
@@ -356,6 +433,11 @@
       log('plus对象: ' + (typeof window.plus !== 'undefined'));
       log('android对象: ' + (typeof window.android !== 'undefined'));
       log('webkit对象: ' + (typeof window.webkit !== 'undefined'));
+      
+      // 检查 Android 接口
+      if (typeof window.android !== 'undefined') {
+        checkAndroidInterface();
+      }
     });
     
     // 添加全局错误处理
