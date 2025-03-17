@@ -180,23 +180,44 @@
     });
     
     // 添加一个备用方法，以防AppSDK注入失败
-    window.manuallyInitSDK = function() {
-      log('手动初始化SDK');
-      if (!window.AppSDK) {
-        window.AppSDK = {
-          openLogin: function() {
-            log('使用备用方法打开登录');
-            // 这里可以实现备用的登录方法
-            alert('请使用App内置的登录功能');
-          },
-          setLoginCallback: function(callback) {
-            window.loginCallback = callback;
-          }
-        };
-        log('备用SDK已初始化');
-        document.dispatchEvent(new CustomEvent('AppSDKReady'));
+  window.manuallyInitSDK = function() {
+  log('手动初始化SDK');
+  if (!window.AppSDK) {
+    window.AppSDK = {
+      openLogin: function() {
+        log('使用备用方法打开登录');
+        
+        // 尝试通过iframe postMessage通信
+        try {
+          log('尝试通过postMessage发送登录请求');
+          window.parent.postMessage({
+            action: 'openLogin'
+          }, '*');
+          
+          // 尝试触发UniApp事件
+          var event = new CustomEvent('UniAppJSBridgeReady', {
+            detail: {
+              data: [{
+                action: 'openLogin'
+              }]
+            }
+          });
+          document.dispatchEvent(event);
+          log('已发送登录请求');
+        } catch(e) {
+          log('发送登录请求失败: ' + e.message);
+          alert('无法连接到App，请使用App内置的登录功能');
+        }
+      },
+      setLoginCallback: function(callback) {
+        window.loginCallback = callback;
+        log('已设置登录回调');
       }
     };
+    log('备用SDK已初始化');
+    document.dispatchEvent(new CustomEvent('AppSDKReady'));
+  }
+};
     
     // 如果5秒后仍未初始化，尝试手动初始化
     setTimeout(function() {
