@@ -85,6 +85,7 @@
       <button class="debug-btn" id="testCustomEvent">测试自定义事件</button>
       <button class="debug-btn" id="testAllMethodsBtn">测试所有方法</button>
       <button class="debug-btn" id="testGlobalMethod">测试全局方法</button>
+      <button class="debug-btn" id="testIframeMethod">测试 iframe 方法</button>
     </div>
   </div>
   
@@ -139,6 +140,21 @@
       );
     }
     
+    // 检查是否在浏览器环境中
+    function isInBrowserEnv() {
+      return (
+        typeof window.plus === 'undefined' && 
+        typeof window.android === 'undefined' && 
+        typeof window.webkit === 'undefined' &&
+        navigator.userAgent.indexOf('uni-app') === -1
+      );
+    }
+    
+    // 检查是否在iframe中
+    function isInIframe() {
+      return window.self !== window.top;
+    }
+    
     // 检查 Android 接口的详细信息
     function checkAndroidInterface() {
       if (window.android) {
@@ -177,18 +193,6 @@
       if (window.android) {
         log('尝试使用 Android 接口');
         
-        // 尝试直接调用 android.openLogin
-        if (typeof window.android.openLogin === 'function') {
-          log('调用 android.openLogin()');
-          try {
-            window.android.openLogin();
-            log('android.openLogin() 调用成功');
-            return true;
-          } catch (e) {
-            log('调用 android.openLogin 失败: ' + e.message);
-          }
-        }
-        
         // 检查 android.webview 对象
         if (window.android.webview) {
           log('检测到 android.webview 对象');
@@ -213,141 +217,86 @@
           }
           
           // 如果没有找到匹配的方法，尝试通用方法
-          if (!success && typeof window.android.webview.callNative === 'function') {
-            log('尝试使用 android.webview.callNative("openLogin")');
+          if (!success && typeof window.android.webview.getExperimentalMediaIntegrityTokenProvider === 'function') {
+            log('尝试使用 getExperimentalMediaIntegrityTokenProvider 方法');
             try {
-              window.android.webview.callNative('openLogin');
-              success = true;
-              log('android.webview.callNative("openLogin") 调用成功');
+              // 这个方法可能不是用于登录，但我们可以尝试调用它来测试通信
+              window.android.webview.getExperimentalMediaIntegrityTokenProvider();
+              log('getExperimentalMediaIntegrityTokenProvider 调用成功');
             } catch (e) {
-              log('调用 android.webview.callNative 失败: ' + e.message);
+              log('调用 getExperimentalMediaIntegrityTokenProvider 失败: ' + e.message);
             }
           }
-          
-          // 尝试使用 postMessage
-          if (!success && typeof window.android.webview.postMessage === 'function') {
-            log('尝试使用 android.webview.postMessage()');
-            try {
-              window.android.webview.postMessage(JSON.stringify({
-                action: 'openLogin',
-                timestamp: new Date().getTime()
-              }));
-              success = true;
-              log('android.webview.postMessage() 调用成功');
-            } catch (e) {
-              log('调用 android.webview.postMessage 失败: ' + e.message);
-            }
-          }
-          
-          if (success) {
+        }
+        
+        // 尝试直接调用 android 对象的方法
+        try {
+          if (typeof window.android.openLogin === 'function') {
+            log('调用 android.openLogin()');
+            window.android.openLogin();
             return true;
           }
+        } catch (e) {
+          log('调用 android.openLogin 失败: ' + e.message);
+        }
+        
+        return false;
+      }
+      return false;
+    }
+    
+    // 使用 iframe 通信打开登录页面
+    function openLoginWithIframe() {
+      if (isInIframe()) {
+        log('检测到在 iframe 中，尝试与父窗口通信');
+        
+        // 方法1: 使用 postMessage
+        try {
+          log('使用 postMessage 发送登录请求到父窗口');
+          window.parent.postMessage({
+            action: 'openLogin',
+            timestamp: new Date().getTime()
+          }, '*');
+          return true;
+        } catch (e) {
+          log('postMessage 失败: ' + e.message);
+        }
+        
+        // 方法2: 尝试调用父窗口的方法
+        try {
+          if (window.parent.openLogin) {
+            log('调用 parent.openLogin()');
+            window.parent.openLogin();
+            return true;
+          } else if (window.parent.getApp && typeof window.parent.getApp === 'function') {
+            var app = window.parent.getApp();
+            if (app && app.openLogin) {
+              log('调用 parent.getApp().openLogin()');
+              app.openLogin();
+              return true;
+            }
+          }
+        } catch (e) {
+          log('调用父窗口方法失败: ' + e.message);
         }
       }
       return false;
     }
     
-    // 测试所有通信方法
-    function testAllMethodsFn() {
-      log('测试所有通信方法');
-      
-      // 测试 Android 接口
-      log('尝试使用 Android 接口');
-      if (window.android) {
-        log('检测到 android.webview 对象');
-        
-        // 尝试调用 android.openLogin
-        if (typeof window.android.openLogin === 'function') {
-          try {
-            window.android.openLogin();
-            log('android.openLogin() 调用成功');
-          } catch (e) {
-            log('调用 android.openLogin 失败: ' + e.message);
-          }
-        }
-        
-        // 尝试调用 android.webview 方法
-        if (window.android.webview) {
-          if (typeof window.android.webview.openLogin === 'function') {
-            try {
-              window.android.webview.openLogin();
-              log('android.webview.openLogin() 调用成功');
-            } catch (e) {
-              log('调用 android.webview.openLogin 失败: ' + e.message);
-            }
-          }
-        }
-      }
-      
-      // 测试 postMessage
-      log('测试 postMessage');
-      try {
-        window.parent.postMessage({
-          action: 'openLogin',
-          test: true,
-          method: 'postMessage',
-          timestamp: new Date().getTime()
-        }, '*');
-        log('postMessage 已发送');
-      } catch (e) {
-        log('postMessage 失败: ' + e.message);
-      }
-      
-      // 测试自定义事件
-      log('测试自定义事件');
-      try {
-        var event = new CustomEvent('h5Login', { 
-          detail: { 
-            action: 'openLogin', 
-            test: true,
-            method: 'customEvent',
-            timestamp: new Date().getTime() 
-          } 
-        });
-        document.dispatchEvent(event);
-        log('自定义事件已发送');
-      } catch (e) {
-        log('自定义事件失败: ' + e.message);
-      }
-      
-      // 测试 URL Scheme
-      log('测试 URL Scheme');
-      try {
-        var a = document.createElement('a');
-        a.href = 'uniwebview://openLogin';
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(function() {
-          document.body.removeChild(a);
-        }, 100);
-        log('URL Scheme 已尝试');
-      } catch (e) {
-        log('URL Scheme 失败: ' + e.message);
-      }
-      
-      // 测试全局方法
-      log('测试全局方法');
-      try {
-        if (window.openLogin) {
-          window.openLogin();
-          log('全局 openLogin 方法已调用');
-        } else if (window.openLoginFromApp) {
-          window.openLoginFromApp();
-          log('全局 openLoginFromApp 方法已调用');
-        } else {
-          log('未找到全局登录方法');
-        }
-      } catch (e) {
-        log('调用全局方法失败: ' + e.message);
-      }
-      
-      log('所有测试方法已尝试');
-    }
-    
     // 发送登录请求的函数
     function sendLoginRequest() {
       log('发送登录请求');
+      
+      // 检查是否在浏览器环境中
+      if (isInBrowserEnv()) {
+        log('检测到浏览器环境');
+        
+        // 如果在 iframe 中，优先使用 iframe 通信
+        if (openLoginWithIframe()) {
+          log('已通过 iframe 通信发送登录请求');
+          return;
+        }
+      }
       
       // 优先使用 Android 接口
       if (openLoginWithAndroid()) {
@@ -357,55 +306,51 @@
       
       // 方法1: 使用 postMessage 发送登录请求
       log('方法1: 使用 postMessage 发送登录请求');
-      try {
-        window.parent.postMessage({
-          action: 'openLogin',
-          timestamp: new Date().getTime()
-        }, '*');
-      } catch(e) {
-        log('postMessage 失败: ' + e.message);
-      }
+      window.parent.postMessage({
+        action: 'openLogin',
+        timestamp: new Date().getTime()
+      }, '*');
       
       // 方法2: 使用自定义事件
       log('方法2: 使用自定义事件');
       try {
         var event = new CustomEvent('h5Login', { 
           detail: { 
-            action: 'openLogin',
+            action: 'openLogin', 
             timestamp: new Date().getTime() 
           } 
         });
         document.dispatchEvent(event);
       } catch(e) {
-        log('自定义事件失败: ' + e.message);
+        log('发送自定义事件失败: ' + e.message);
       }
       
       // 方法3: 尝试使用 location.href
       log('方法3: 尝试使用 location.href');
       try {
-        var a = document.createElement('a');
-        a.href = 'uniwebview://openLogin';
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
+        var iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = 'uniwebview://openLogin';
+        document.body.appendChild(iframe);
         setTimeout(function() {
-          document.body.removeChild(a);
+          document.body.removeChild(iframe);
         }, 100);
       } catch(e) {
-        log('location.href 失败: ' + e.message);
+        log('使用 iframe 打开 URL Scheme 失败: ' + e.message);
       }
       
       // 方法4: 尝试调用全局方法
       log('方法4: 尝试调用全局方法');
       try {
         if (window.openLogin) {
+          log('调用 window.openLogin()');
           window.openLogin();
-          log('全局 openLogin 方法被调用');
-        } else if (window.openLoginFromApp) {
-          window.openLoginFromApp();
-          log('全局 openLoginFromApp 方法被调用');
-        } else {
-          log('未找到全局登录方法');
+        } else if (window.getApp && typeof window.getApp === 'function') {
+          var app = window.getApp();
+          if (app && app.openLogin) {
+            log('调用 getApp().openLogin()');
+            app.openLogin();
+          }
         }
       } catch(e) {
         log('调用全局方法失败: ' + e.message);
@@ -430,33 +375,95 @@
       log('已尝试所有登录请求方法');
     }
     
+    // 测试所有通信方法
+    function testAllMethodsFn() {
+      log('测试所有通信方法');
+      
+      // 测试 Android 接口
+      openLoginWithAndroid();
+      
+      // 测试 postMessage
+      log('测试 postMessage');
+      try {
+        window.parent.postMessage({
+          action: 'openLogin',
+          test: true,
+          method: 'postMessage',
+          timestamp: new Date().getTime()
+        }, '*');
+        log('postMessage 已发送');
+      } catch(e) {
+        log('postMessage 失败: ' + e.message);
+      }
+      
+      // 测试自定义事件
+      log('测试自定义事件');
+      try {
+        var event = new CustomEvent('h5Login', { 
+          detail: { 
+            action: 'openLogin', 
+            test: true,
+            method: 'customEvent',
+            timestamp: new Date().getTime() 
+          } 
+        });
+        document.dispatchEvent(event);
+        log('自定义事件已发送');
+      } catch(e) {
+        log('自定义事件失败: ' + e.message);
+      }
+      
+      // 测试 URL Scheme
+      log('测试 URL Scheme');
+      try {
+        var iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = 'uniwebview://openLogin?test=true&method=urlScheme';
+        document.body.appendChild(iframe);
+        setTimeout(function() {
+          document.body.removeChild(iframe);
+        }, 100);
+        log('URL Scheme 已尝试');
+      } catch(e) {
+        log('URL Scheme 失败: ' + e.message);
+      }
+      
+      log('所有测试方法已尝试');
+    }
+    
     // 初始化页面
     function initPage() {
       log('初始化页面');
-      var loginBtn = document.getElementById('loginBtn');
-      var userInfo = document.getElementById('userInfo');
-      var username = document.getElementById('username');
-      var testAndroid = document.getElementById('testAndroid');
-      var testWebview = document.getElementById('testWebview');
-      var testPostMessage = document.getElementById('testPostMessage');
-      var testCustomEvent = document.getElementById('testCustomEvent');
-      var testAllMethodsBtn = document.getElementById('testAllMethodsBtn');
-      var testGlobalMethod = document.getElementById('testGlobalMethod');
       
       // 检查登录状态
       var token = localStorage.getItem('token');
-      if (token) {
+      var username = localStorage.getItem('username');
+      
+      var userInfo = document.getElementById('userInfo');
+      var usernameEl = document.getElementById('username');
+      var loginBtn = document.getElementById('loginBtn');
+      
+      if (token && username) {
         log('已登录状态');
         loginBtn.style.display = 'none';
         userInfo.style.display = 'block';
-        username.textContent = localStorage.getItem('username') || '用户';
+        usernameEl.textContent = username;
       } else {
         log('未登录状态');
         loginBtn.style.display = 'block';
         userInfo.style.display = 'none';
       }
       
-      // 绑定登录按钮点击事件
+      // 获取调试按钮
+      var testAndroid = document.getElementById('testAndroid');
+      var testWebview = document.getElementById('testWebview');
+      var testPostMessage = document.getElementById('testPostMessage');
+      var testCustomEvent = document.getElementById('testCustomEvent');
+      var testAllMethodsBtn = document.getElementById('testAllMethodsBtn');
+      var testGlobalMethod = document.getElementById('testGlobalMethod');
+      var testIframeMethod = document.getElementById('testIframeMethod');
+      
+      // 添加登录按钮点击事件
       loginBtn.addEventListener('click', function() {
         log('点击登录按钮');
         sendLoginRequest();
@@ -472,25 +479,23 @@
       testWebview.addEventListener('click', function() {
         log('测试 webview 对象');
         if (window.android && window.android.webview) {
-          log('android.webview 对象存在');
-          try {
-            // 尝试覆盖 webview 对象
-            window.android.webview = {
-              openLogin: function() {
-                log('自定义 webview.openLogin 被调用');
-                window.parent.postMessage({
-                  action: 'openLogin',
-                  source: 'customWebview'
-                }, '*');
+          log('检测到 android.webview 对象');
+          for (var prop in window.android.webview) {
+            log('- android.webview.' + prop + ' (' + typeof window.android.webview[prop] + ')');
+            
+            // 如果是函数，尝试调用
+            if (typeof window.android.webview[prop] === 'function') {
+              log('尝试调用 android.webview.' + prop + '()');
+              try {
+                var result = window.android.webview[prop]();
+                log('调用成功，结果: ' + result);
+              } catch(e) {
+                log('调用失败: ' + e.message);
               }
-            };
-            log('已覆盖 webview 对象');
-            window.android.webview.openLogin();
-          } catch(e) {
-            log('使用 webview 对象失败: ' + e.message);
+            }
           }
         } else {
-          log('android.webview 对象不存在');
+          log('未检测到 android.webview 对象');
         }
       });
       
@@ -555,6 +560,62 @@
         }
       });
       
+      testIframeMethod.addEventListener('click', function() {
+        log('测试 iframe 方法');
+        if (isInIframe()) {
+          log('检测到在 iframe 中');
+          
+          // 尝试调用父窗口的方法
+          try {
+            log('尝试调用父窗口的方法');
+            
+            if (window.parent.openLogin) {
+              log('调用 parent.openLogin()');
+              window.parent.openLogin();
+            } else if (window.parent.getApp && typeof window.parent.getApp === 'function') {
+              log('调用 parent.getApp()');
+              var app = window.parent.getApp();
+              log('获取到 parent.app 对象: ' + (app ? 'true' : 'false'));
+              
+              if (app && app.openLogin) {
+                log('调用 parent.getApp().openLogin()');
+                app.openLogin();
+              } else {
+                log('parent.getApp().openLogin 不可用');
+              }
+            } else {
+              log('未找到可用的父窗口方法');
+              
+              // 尝试使用 postMessage
+              log('使用 postMessage 发送测试消息到父窗口');
+              window.parent.postMessage({
+                action: 'openLogin',
+                test: true,
+                method: 'iframeTest',
+                timestamp: new Date().getTime()
+              }, '*');
+            }
+          } catch(e) {
+            log('调用父窗口方法失败: ' + e.message);
+            
+            // 尝试使用 postMessage
+            log('使用 postMessage 发送测试消息到父窗口');
+            try {
+              window.parent.postMessage({
+                action: 'openLogin',
+                test: true,
+                method: 'iframeTest',
+                timestamp: new Date().getTime()
+              }, '*');
+            } catch(e2) {
+              log('postMessage 失败: ' + e2.message);
+            }
+          }
+        } else {
+          log('不在 iframe 中，无法测试');
+        }
+      });
+      
       // 监听消息
       window.addEventListener('message', function(event) {
         log('收到消息: ' + JSON.stringify(event.data));
@@ -590,7 +651,7 @@
       log('浏览器信息: ' + navigator.userAgent);
       log('当前URL: ' + window.location.href);
       log('referrer: ' + document.referrer);
-      log('是否在iframe中: ' + (window.self !== window.top));
+      log('是否在iframe中: ' + isInIframe());
       log('window.parent可用: ' + (window.parent !== window.self));
       log('plus对象: ' + (typeof window.plus !== 'undefined'));
       log('android对象: ' + (typeof window.android !== 'undefined'));
